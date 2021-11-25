@@ -1,0 +1,7 @@
+node_modules
+dist
+logs
+debug.log
+coverage
+licenses*.csv
+dist_docs
