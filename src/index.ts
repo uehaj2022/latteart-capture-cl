@@ -179,7 +179,7 @@ app.get(`${v1RootPath}/devices`, (req, res) => {
 
       LoggingService.info("Devices detected.");
 
-      res.send(devices);
+      res.json(devices);
     } catch (error) {
       LoggingService.error("Detect devices failed.", error);
 
@@ -191,6 +191,15 @@ app.get(`${v1RootPath}/devices`, (req, res) => {
       res.status(500).json(serverError);
     }
   })();
+});
+
+/**
+ * Get server name.
+ */
+app.get(`${v1RootPath}/server-name`, (req, res) => {
+  LoggingService.info("Get server name.");
+
+  res.json("latteart-capture-cl");
 });
 
 socket.on("connection", (socket) => {

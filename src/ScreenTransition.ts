@@ -43,7 +43,7 @@ export default class ScreenTransition {
   /**
    * Timestamp.
    */
-  public timestamp: string = moment().unix().toString();
+  public timestamp: string = moment().valueOf().toString();
 
   /**
    * Html page source.

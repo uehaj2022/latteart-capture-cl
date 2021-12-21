@@ -1,6 +1,6 @@
 {
   "name": "latteart-capture-cl",
-  "version": "1.7.5",
+  "version": "2.0.0",
   "main": "index.js",
   "private": true,
   "scripts": {
@@ -10,7 +10,8 @@
     "package": "yarn package:win & yarn package:mac",
     "package:win": "nexe dist/index.js -o dist/latteart-capture-cl/latteart-capture-cl --target windows-x64-12.18.1",
     "package:mac": "nexe dist/index.js -o dist/latteart-capture-cl/latteart-capture-cl --target macos-x64-12.18.1",
-    "prepackage": "yarn build",
+    "prepackage:win": "yarn build",
+    "prepackage:mac": "yarn build",
     "doc": "typedoc --out dist_docs/typedoc src/",
     "lint": "eslint src",
     "fix": "yarn fix:lint && yarn fix:format",

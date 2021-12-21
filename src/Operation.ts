@@ -93,7 +93,7 @@ export class Operation {
   /**
    * Timestamp.
    */
-  public timestamp: string = moment().unix().toString();
+  public timestamp: string = moment().valueOf().toString();
 
   /**
    * The screen elements in the screen that has been operated.

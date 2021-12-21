@@ -19,7 +19,6 @@ COPY src/ ./src/
 COPY tests/ ./tests/
 COPY yarn.lock ./
 RUN yarn install
-RUN yarn prepackage
 RUN yarn package:win
 # RUN yarn package:mac
 
