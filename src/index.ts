@@ -33,6 +33,9 @@ import { ServerError, ServerErrorCode } from "./ServerError";
 import moment from "moment";
 import ChromeDriverHealthChecker from "./webdriver/ChromeDriverHealthChecker";
 import { SpecialOperationType } from "./SpecialOperationType";
+import path from "path";
+
+const appRootPath = path.relative(process.cwd(), path.dirname(__dirname));
 
 const app = express();
 app.use(function (req, res, next) {
@@ -160,7 +163,10 @@ async function deviceIsConnected(platformName: PlatformName, deviceId: string) {
 }
 
 LoggingService.initialize(
-  new StandardLogger(RunningMode.Debug, "./logs/latteart-capture-cl.log")
+  new StandardLogger(
+    RunningMode.Debug,
+    path.join(appRootPath, "logs", "latteart-capture-cl.log")
+  )
 );
 
 const v1RootPath = "/api/v1";

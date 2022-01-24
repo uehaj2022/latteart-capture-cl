@@ -138,8 +138,8 @@ export default class BrowserOperationRunner {
 
       for (const [index, operation] of operations.entries()) {
         if (index > 0) {
-          const previous = moment.unix(Number(operations[index - 1].timestamp));
-          const current = moment.unix(Number(operations[index].timestamp));
+          const previous = moment(Number(operations[index - 1].timestamp));
+          const current = moment(Number(operations[index].timestamp));
 
           await this.client.sleep(current.diff(previous));
         }
