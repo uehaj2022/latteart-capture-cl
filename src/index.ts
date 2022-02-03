@@ -30,10 +30,10 @@ import BrowserOperationRunner from "./runner/BrowserOperationRunner";
 import WebDriverServer from "./WebDriverServer";
 import AppiumHealthChecker from "./webdriver/AppiumHealthChecker";
 import { ServerError, ServerErrorCode } from "./ServerError";
-import moment from "moment";
 import ChromeDriverHealthChecker from "./webdriver/ChromeDriverHealthChecker";
 import { SpecialOperationType } from "./SpecialOperationType";
 import path from "path";
+import { TimestampImpl } from "./Timestamp";
 
 const appRootPath = path.relative(process.cwd(), path.dirname(__dirname));
 
@@ -404,7 +404,7 @@ socket.on("connection", (socket) => {
 
         socket.emit(
           ServerToClientSocketIOEvent.CAPTURE_STARTED,
-          moment().unix().toString()
+          new TimestampImpl().epochMilliseconds().toString()
         );
 
         await capturer.start(parsedUrl);

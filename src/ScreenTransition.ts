@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import moment from "moment";
+import { TimestampImpl } from "./Timestamp";
 
 /**
  * Screen transition information.
@@ -43,7 +43,7 @@ export default class ScreenTransition {
   /**
    * Timestamp.
    */
-  public timestamp: string = moment().valueOf().toString();
+  public timestamp: string = new TimestampImpl().epochMilliseconds().toString();
 
   /**
    * Html page source.

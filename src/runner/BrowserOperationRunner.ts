@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import moment from "moment";
 import { Operation } from "../Operation";
 import WebDriverClient from "@/webdriver/WebDriverClient";
 import LoggingService from "../logger/LoggingService";
 import { SpecialOperationType } from "../SpecialOperationType";
+import { TimestampImpl } from "../Timestamp";
 
 /**
  * The class for Running operations.
@@ -138,8 +138,8 @@ export default class BrowserOperationRunner {
 
       for (const [index, operation] of operations.entries()) {
         if (index > 0) {
-          const previous = moment(Number(operations[index - 1].timestamp));
-          const current = moment(Number(operations[index].timestamp));
+          const previous = new TimestampImpl(operations[index - 1].timestamp);
+          const current = new TimestampImpl(operations[index].timestamp);
 
           await this.client.sleep(current.diff(previous));
         }

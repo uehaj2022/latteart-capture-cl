@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import moment from "moment";
+import { TimestampImpl } from "./Timestamp";
 
 /**
  * Screen element information.
@@ -93,7 +93,7 @@ export class Operation {
   /**
    * Timestamp.
    */
-  public timestamp: string = moment().valueOf().toString();
+  public timestamp: string = new TimestampImpl().epochMilliseconds().toString();
 
   /**
    * The screen elements in the screen that has been operated.
