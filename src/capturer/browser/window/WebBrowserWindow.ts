@@ -360,7 +360,7 @@ export default class WebBrowserWindow {
 
   private async noticeCapturedOperations(...operations: Operation[]) {
     for (const operation of operations) {
-      operation.pageSource = await this.client.getCurrentPageSource();
+      operation.pageSource = await this.client.getCurrentPageText();
       this.onGetOperation(operation);
     }
   }
@@ -390,8 +390,8 @@ export default class WebBrowserWindow {
 
   private async createScreenTransition(): Promise<ScreenTransition | null> {
     await this.updateScreenAndOperationSummary();
-    const pageSource = await this.client.getCurrentPageSource();
-    if (!pageSource) {
+    const pageText = await this.client.getCurrentPageText();
+    if (!pageText) {
       return null;
     }
     return new ScreenTransition({
@@ -399,7 +399,7 @@ export default class WebBrowserWindow {
       title: this.currentScreenSummary.title,
       url: this.currentScreenSummary.url,
       imageData: this.currentOperationSummary.screenshotBase64,
-      pageSource,
+      pageSource: pageText,
     });
   }
 

@@ -219,6 +219,22 @@ export class SeleniumWebDriverClient implements WebDriverClient {
   /**
    * @inheritdoc
    */
+  public async getCurrentPageText(): Promise<string> {
+    try {
+      return await this.driver.findElement(By.css("body")).getText();
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.name == "NoSuchWindowError") {
+          return "";
+        }
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * @inheritdoc
+   */
   public async execute<T, U>(
     script: (args: U) => T,
     args?: U

@@ -131,6 +131,12 @@ export default interface WebDriverClient extends ScriptExecutor {
   getCurrentPageSource(): Promise<string>;
 
   /**
+   * Get current page text.
+   * @returns Current page text.
+   */
+  getCurrentPageText(): Promise<string>;
+
+  /**
    * Click an element.
    * @param xpath Target element XPath.
    */
