@@ -32,7 +32,7 @@ describe("WebBrowserWindowは", () => {
       "isReadyToCapture"
     );
     const clientMock = {
-      getCurrentPageSource: jest.fn().mockResolvedValueOnce("pageSource"),
+      getCurrentPageText: jest.fn().mockResolvedValueOnce("pageSource"),
       alertIsVisible: jest.fn().mockResolvedValue(true),
       sendKeys: jest.fn().mockResolvedValue(undefined),
     };
@@ -263,7 +263,7 @@ describe("WebBrowserWindowは", () => {
       takeScreenshotWithMarkOfSpy.mockResolvedValue("imageData");
 
       clientMock = {
-        getCurrentPageSource: jest.fn().mockResolvedValueOnce("pageSource"),
+        getCurrentPageText: jest.fn().mockResolvedValueOnce("pageSource"),
         alertIsVisible: jest.fn().mockResolvedValue(true),
         sendKeys: jest.fn().mockResolvedValue(undefined),
       };

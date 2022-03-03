@@ -1,5 +1,5 @@
 /**
- * Copyright 2021 NTT Corporation.
+ * Copyright 2022 NTT Corporation.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import moment from "moment";
+import { TimestampImpl } from "./Timestamp";
 
 /**
  * Screen transition information.
@@ -43,7 +43,7 @@ export default class ScreenTransition {
   /**
    * Timestamp.
    */
-  public timestamp: string = moment().valueOf().toString();
+  public timestamp: string = new TimestampImpl().epochMilliseconds().toString();
 
   /**
    * Html page source.

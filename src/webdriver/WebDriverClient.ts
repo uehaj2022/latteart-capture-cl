@@ -1,5 +1,5 @@
 /**
- * Copyright 2021 NTT Corporation.
+ * Copyright 2022 NTT Corporation.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -129,6 +129,12 @@ export default interface WebDriverClient extends ScriptExecutor {
    * @returns Current page source.
    */
   getCurrentPageSource(): Promise<string>;
+
+  /**
+   * Get current page text.
+   * @returns Current page text.
+   */
+  getCurrentPageText(): Promise<string>;
 
   /**
    * Click an element.
