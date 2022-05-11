@@ -16,7 +16,7 @@
 
 import WebDriverClient from "./WebDriverClient";
 import { PlatformName, Browser } from "../CaptureConfig";
-import { Builder, Capabilities } from "selenium-webdriver";
+import { Builder, Capabilities, ThenableWebDriver } from "selenium-webdriver";
 import { APPIUM_SERVER_URL } from "./AppiumHealthChecker";
 import { SeleniumWebDriverClient } from "./SeleniumWebDriverClient";
 import { Options } from "selenium-webdriver/chrome";
@@ -55,15 +55,32 @@ export default class WebDriverClientFactory {
           params.device.name
         );
       }
-      return await this.createWebDriverBuilderForPC(params.browserBinaryPath);
+      return await this.createWebDriverBuilderForPC(
+        params.browserBinaryPath,
+        params.browserName
+      );
     })();
 
     return new SeleniumWebDriverClient(driver);
   }
 
-  private createWebDriverBuilderForPC(browserPath: string) {
+  private createWebDriverBuilderForPC(
+    browserPath: string,
+    browserName: Browser
+  ) {
     const serverUrl = "http://127.0.0.1:9515";
 
+    if (browserName === Browser.Edge) {
+      return this.createEdgeWebDriverBuilder(serverUrl);
+    } else {
+      return this.createChromeWebDriverBuilder(browserPath, serverUrl);
+    }
+  }
+
+  private createChromeWebDriverBuilder(
+    browserPath: string,
+    serverUrl: string
+  ): ThenableWebDriver {
     const caps = new Capabilities();
     caps.setPageLoadStrategy("eager");
     if (browserPath !== "") {
@@ -78,6 +95,16 @@ export default class WebDriverClientFactory {
     return new Builder()
       .withCapabilities(caps)
       .forBrowser("chrome")
+      .usingServer(serverUrl)
+      .build();
+  }
+
+  private createEdgeWebDriverBuilder(serverUrl: string): ThenableWebDriver {
+    const caps = new Capabilities();
+    caps.setPageLoadStrategy("eager");
+    return new Builder()
+      .withCapabilities(caps)
+      .forBrowser("MicrosoftEdge")
       .usingServer(serverUrl)
       .build();
   }

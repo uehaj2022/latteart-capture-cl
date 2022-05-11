@@ -29,6 +29,7 @@ export enum PlatformName {
 export enum Browser {
   Chrome = "Chrome",
   Safari = "Safari",
+  Edge = "Edge",
 }
 
 /**
