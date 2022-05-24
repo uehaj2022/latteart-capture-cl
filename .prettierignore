@@ -2,3 +2,4 @@ yarn.lock
 .prettierignore
 DockerFile
 .dockerignore
+third-party-licenses.txt
