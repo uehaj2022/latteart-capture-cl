@@ -18,7 +18,7 @@ import express from "express";
 import http from "http";
 import socketIO from "socket.io";
 import BrowserOperationCapturer from "./capturer/BrowserOperationCapturer";
-import { CaptureConfig, PlatformName } from "./CaptureConfig";
+import { Browser, CaptureConfig, PlatformName } from "./CaptureConfig";
 import LoggingService from "./logger/LoggingService";
 import StandardLogger, { RunningMode } from "./logger/StandardLogger";
 import { AndroidDeviceAccessor } from "./device/AndroidDeviceAccessor";
@@ -95,7 +95,8 @@ enum ServerToClientSocketIOEvent {
  * @returns The WebDriver server that has been started.
  */
 async function startWebDriverServer(
-  platformName: PlatformName
+  platformName: PlatformName,
+  browserName: Browser
 ): Promise<WebDriverServer | null> {
   if (await ChromeDriverHealthChecker.chromeDriverIsStarted()) {
     return new WebDriverServer();
@@ -103,7 +104,9 @@ async function startWebDriverServer(
 
   return new Promise((resolve) => {
     if (platformName === PlatformName.PC) {
-      const proc = spawn("chromedriver");
+      const proc = spawn(
+        browserName === Browser.Edge ? "msedgedriver" : "chromedriver"
+      );
 
       proc.on("error", (error) => {
         proc.kill();
@@ -115,7 +118,13 @@ async function startWebDriverServer(
 
       proc.stdout.on("data", async (data) => {
         const message = data.toString();
-        if (message.includes("ChromeDriver was started successfully.")) {
+        if (
+          message.includes(
+            `${
+              browserName === Browser.Edge ? "EdgeDriver" : "ChromeDriver"
+            } was started successfully.`
+          )
+        ) {
           LoggingService.info(message);
 
           resolve(new WebDriverServer(proc));
@@ -187,6 +196,9 @@ app.get(`${v1RootPath}/devices`, (req, res) => {
 
       res.json(devices);
     } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
       LoggingService.error("Detect devices failed.", error);
 
       const serverError: ServerError = {
@@ -213,7 +225,8 @@ socket.on("connection", (socket) => {
 
   async function setupWebDriver(captureConfig: CaptureConfig) {
     const serverProcess = await startWebDriverServer(
-      captureConfig.platformName
+      captureConfig.platformName,
+      captureConfig.browserName
     );
 
     // If WebDriver failed to start.
@@ -409,6 +422,9 @@ socket.on("connection", (socket) => {
 
         await capturer.start(parsedUrl);
       } catch (error) {
+        if (!(error instanceof Error)) {
+          throw error;
+        }
         if (error.name === "InvalidArgumentError") {
           LoggingService.error(`Invalid url.: ${parsedUrl}`);
 
@@ -529,6 +545,9 @@ socket.on("connection", (socket) => {
 
         socket.emit(ServerToClientSocketIOEvent.RUN_OPERATIONS_COMPLETED);
       } catch (error) {
+        if (!(error instanceof Error)) {
+          throw error;
+        }
         if (
           error.name === "SessionNotCreatedError" &&
           error.message.includes(

@@ -127,9 +127,8 @@ export default class BrowserOperationRunner {
     try {
       await this.client.open(operations[0].url);
 
-      const recordedWindowHandleMap = BrowserOperationRunner.createRecordedWindowHandleMap(
-        operations
-      );
+      const recordedWindowHandleMap =
+        BrowserOperationRunner.createRecordedWindowHandleMap(operations);
       const replayWindowHandleMap = new Map<number, string>();
       const replayHandleCount = { counter: 0 };
       let lastRecordedWindowHandle = "";
@@ -223,10 +222,10 @@ export default class BrowserOperationRunner {
       }
     } catch (error) {
       if (
-        error.name === "WebDriverError" ||
-        error.name === "NoSuchWindowError"
+        error instanceof Error &&
+        (error.name === "WebDriverError" || error.name === "NoSuchWindowError")
       ) {
-        LoggingService.debug(error);
+        LoggingService.debug(error.name);
       } else {
         throw error;
       }

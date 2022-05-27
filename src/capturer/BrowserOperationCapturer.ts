@@ -106,10 +106,13 @@ export default class BrowserOperationCapturer {
     try {
       await browser.open(url);
     } catch (error) {
-      this.onError(error);
-      this.onBrowserClosed();
+      if (error instanceof Error) {
+        this.onError(error);
+        this.onBrowserClosed();
 
-      return;
+        return;
+      }
+      throw error;
     }
 
     this.webBrowser = browser;
@@ -202,11 +205,14 @@ export default class BrowserOperationCapturer {
           await currentWindow.captureOperations();
         }
       } catch (error) {
+        if (!(error instanceof Error)) {
+          throw error;
+        }
         if (
           error.name === "UnexpectedAlertOpenError" ||
           error.name === "TimeoutError"
         ) {
-          LoggingService.debug(error);
+          LoggingService.debug(error.name);
           continue;
         }
 
@@ -216,7 +222,7 @@ export default class BrowserOperationCapturer {
           error.name === "WebDriverError" ||
           error.name === "NoSuchWindowError"
         ) {
-          LoggingService.debug(error);
+          LoggingService.debug(error.name);
 
           continue;
         }
