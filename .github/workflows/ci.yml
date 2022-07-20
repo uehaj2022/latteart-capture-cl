@@ -19,6 +19,19 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-      - run: |
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        id: cache-dependencies
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: "**/node_modules"
+          key: ${{ runner.os }}-build-${{ matrix.node-version }}-${{ env.cache-name }}-${{ hashFiles('**/yarn.lock') }}
+
+      - name: Install dependencies
+        if: ${{ steps.cache-dependencies.outputs.cache-hit != 'true' }}
+        run: |
           yarn install
+
+      - run: |
           yarn test

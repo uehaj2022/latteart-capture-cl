@@ -24,7 +24,8 @@ WebDriver を利用して Web ブラウザに対するユーザ操作を取得�
    ```
 1. `dist/latteart-capture-cl`に以下構成のディレクトリが作成されます。
    ```bash
-   dist/latteart-capture-cl
+   dist/latteart-capture-cl/
+       ├─ node_modules/ # 外部ライブラリ群
        ├─ latteart-capture-cl.exe # Windows用実行ファイル
        └─ latteart-capture-cl # Mac用実行ファイル
    ```

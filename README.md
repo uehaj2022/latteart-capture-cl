@@ -26,7 +26,8 @@ This service capture users' operations using WebDriver.
    ```
 1. The following directory and file is created in `dist/latteart-capture-cl`.
    ```bash
-   latteart-capture-cl
+   dist/latteart-capture-cl/
+       ├─ node_modules/ # external libraries
        ├─ latteart-capture-cl.exe # for Windows
        └─ latteart-capture-cl # for Mac
    ```
