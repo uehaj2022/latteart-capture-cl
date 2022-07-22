@@ -17,9 +17,9 @@
 import WebDriverClient from "./WebDriverClient";
 import { PlatformName, Browser } from "../CaptureConfig";
 import { Builder, Capabilities, ThenableWebDriver } from "selenium-webdriver";
-import { APPIUM_SERVER_URL } from "./AppiumHealthChecker";
 import { SeleniumWebDriverClient } from "./SeleniumWebDriverClient";
 import { Options } from "selenium-webdriver/chrome";
+import WebDriverServer from "../WebDriverServer";
 
 /**
  * The class for creating {@link WebDriverClient}.
@@ -33,6 +33,7 @@ export default class WebDriverClientFactory {
    * @param params.device.name Device name.
    * @param params.device.osVersion OS version of the device.
    * @param params.browserBinaryPath Browser binary path.
+   * @param params.webDriverServer WebDriver server.
    * @returns Created instance.
    */
   public async create(params: {
@@ -44,20 +45,26 @@ export default class WebDriverClientFactory {
       osVersion: string;
     };
     browserBinaryPath: string;
+    webDriverServer: WebDriverServer;
   }): Promise<WebDriverClient> {
     const driver = await (async () => {
       if (params.platformName === PlatformName.Android) {
-        return await this.createWebDriverBuilderForAndroid(params.device.id);
+        return await this.createWebDriverBuilderForAndroid(
+          params.device.id,
+          params.webDriverServer.url
+        );
       }
       if (params.platformName === PlatformName.iOS) {
         return await this.createWebDriverBuilderForIOS(
           params.device.id,
-          params.device.name
+          params.device.name,
+          params.webDriverServer.url
         );
       }
       return await this.createWebDriverBuilderForPC(
         params.browserBinaryPath,
-        params.browserName
+        params.browserName,
+        params.webDriverServer.url
       );
     })();
 
@@ -66,10 +73,9 @@ export default class WebDriverClientFactory {
 
   private createWebDriverBuilderForPC(
     browserPath: string,
-    browserName: Browser
+    browserName: Browser,
+    serverUrl: string
   ) {
-    const serverUrl = "http://127.0.0.1:9515";
-
     if (browserName === Browser.Edge) {
       return this.createEdgeWebDriverBuilder(serverUrl);
     } else {
@@ -109,9 +115,13 @@ export default class WebDriverClientFactory {
       .build();
   }
 
-  private createWebDriverBuilderForIOS(deviceId: string, deviceName: string) {
+  private createWebDriverBuilderForIOS(
+    deviceId: string,
+    deviceName: string,
+    serverUrl: string
+  ) {
     return new Builder()
-      .usingServer(APPIUM_SERVER_URL)
+      .usingServer(serverUrl)
       .withCapabilities({
         browserName: Browser.Safari,
         udid: deviceId,
@@ -123,9 +133,12 @@ export default class WebDriverClientFactory {
       .build();
   }
 
-  private createWebDriverBuilderForAndroid(deviceId: string) {
+  private createWebDriverBuilderForAndroid(
+    deviceId: string,
+    serverUrl: string
+  ) {
     return new Builder()
-      .usingServer(APPIUM_SERVER_URL)
+      .usingServer(serverUrl)
       .withCapabilities({
         browserName: Browser.Chrome,
         deviceName: deviceId,

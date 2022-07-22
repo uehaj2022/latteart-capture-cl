@@ -18,22 +18,19 @@ import express from "express";
 import http from "http";
 import socketIO from "socket.io";
 import BrowserOperationCapturer from "./capturer/BrowserOperationCapturer";
-import { Browser, CaptureConfig, PlatformName } from "./CaptureConfig";
+import { CaptureConfig } from "./CaptureConfig";
 import LoggingService from "./logger/LoggingService";
 import StandardLogger, { RunningMode } from "./logger/StandardLogger";
 import { AndroidDeviceAccessor } from "./device/AndroidDeviceAccessor";
 import { IOSDeviceAccessor } from "./device/IOSDeviceAccessor";
 import WebDriverClientFactory from "./webdriver/WebDriverClientFactory";
-import { spawn } from "child_process";
 import { Operation } from "./Operation";
 import BrowserOperationRunner from "./runner/BrowserOperationRunner";
-import WebDriverServer from "./WebDriverServer";
-import AppiumHealthChecker from "./webdriver/AppiumHealthChecker";
 import { ServerError, ServerErrorCode } from "./ServerError";
-import ChromeDriverHealthChecker from "./webdriver/ChromeDriverHealthChecker";
 import { SpecialOperationType } from "./SpecialOperationType";
 import path from "path";
 import { TimestampImpl } from "./Timestamp";
+import { setupWebDriverServer } from "./webdriver/setupWebDriver";
 
 const appRootPath = path.relative(process.cwd(), path.dirname(__dirname));
 
@@ -89,88 +86,6 @@ enum ServerToClientSocketIOEvent {
   ERROR_OCCURRED = "error_occurred",
 }
 
-/**
- * Start a WebDriver server that matches the platform.
- * @param platformName Platform name.
- * @returns The WebDriver server that has been started.
- */
-async function startWebDriverServer(
-  platformName: PlatformName,
-  browserName: Browser
-): Promise<WebDriverServer | null> {
-  if (await ChromeDriverHealthChecker.chromeDriverIsStarted()) {
-    return new WebDriverServer();
-  }
-
-  return new Promise((resolve) => {
-    if (platformName === PlatformName.PC) {
-      const proc = spawn(
-        browserName === Browser.Edge ? "msedgedriver" : "chromedriver"
-      );
-
-      proc.on("error", (error) => {
-        proc.kill();
-
-        LoggingService.error("Command failed.", error);
-
-        resolve(null);
-      });
-
-      proc.stdout.on("data", async (data) => {
-        const message = data.toString();
-        if (
-          message.includes(
-            `${
-              browserName === Browser.Edge ? "EdgeDriver" : "ChromeDriver"
-            } was started successfully.`
-          )
-        ) {
-          LoggingService.info(message);
-
-          resolve(new WebDriverServer(proc));
-        }
-      });
-    } else {
-      resolve(new WebDriverServer());
-    }
-  });
-}
-
-/**
- * Whether Appium is started or not.
- * @returns 'true': Appium is started, 'false': Appium is not started.
- */
-async function appiumIsStarted() {
-  if (!(await AppiumHealthChecker.appiumIsStarted())) {
-    LoggingService.error("Appium is not ready.");
-
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * Whether the device is connected or not.
- * @param platformName The platform name of the device.
- * @param deviceId The ID of the device.
- * @params 'true': The device is connected, 'false': The device is not connected.
- */
-async function deviceIsConnected(platformName: PlatformName, deviceId: string) {
-  const accessor =
-    platformName === PlatformName.Android
-      ? new AndroidDeviceAccessor()
-      : new IOSDeviceAccessor();
-
-  if (!accessor.deviceIsConnected(deviceId)) {
-    LoggingService.error(`Device is not connected. : ${deviceId}`);
-
-    return false;
-  }
-
-  return true;
-}
-
 LoggingService.initialize(
   new StandardLogger(
     RunningMode.Debug,
@@ -223,60 +138,6 @@ app.get(`${v1RootPath}/server-name`, (req, res) => {
 socket.on("connection", (socket) => {
   LoggingService.info("Socket connected.");
 
-  async function setupWebDriver(captureConfig: CaptureConfig) {
-    const serverProcess = await startWebDriverServer(
-      captureConfig.platformName,
-      captureConfig.browserName
-    );
-
-    // If WebDriver failed to start.
-    if (!serverProcess) {
-      LoggingService.error("WebDriver is not ready.");
-
-      const serverError: ServerError = {
-        code: ServerErrorCode.WEB_DRIVER_NOT_READY,
-        message: "WebDriver is not ready.",
-      };
-
-      return {
-        error: serverError,
-      };
-    }
-
-    if (captureConfig.platformName !== PlatformName.PC) {
-      if (!(await appiumIsStarted())) {
-        const serverError: ServerError = {
-          code: ServerErrorCode.APPIUM_NOT_STARTED,
-          message: "Appium is not started.",
-        };
-
-        return {
-          error: serverError,
-        };
-      }
-
-      if (
-        !(await deviceIsConnected(
-          captureConfig.platformName,
-          captureConfig.device.id
-        ))
-      ) {
-        const serverError: ServerError = {
-          code: ServerErrorCode.DEVICE_NOT_CONNECTED,
-          message: "Device is not connected.",
-        };
-
-        return {
-          error: serverError,
-        };
-      }
-    }
-
-    return {
-      serverProcess,
-    };
-  }
-
   let capturer: BrowserOperationCapturer;
   let runner: BrowserOperationRunner;
 
@@ -290,7 +151,7 @@ socket.on("connection", (socket) => {
 
       const captureConfig = new CaptureConfig(JSON.parse(config));
 
-      const { serverProcess, error: setupError } = await setupWebDriver(
+      const { server, error: setupError } = await setupWebDriverServer(
         captureConfig
       );
 
@@ -312,6 +173,7 @@ socket.on("connection", (socket) => {
           browserName: captureConfig.browserName,
           device: captureConfig.device,
           browserBinaryPath: "",
+          webDriverServer: server,
         });
 
         capturer = new BrowserOperationCapturer(client, captureConfig, {
@@ -475,7 +337,7 @@ socket.on("connection", (socket) => {
           JSON.stringify(serverError)
         );
       } finally {
-        serverProcess!.kill();
+        server.kill();
         socket.disconnect();
       }
     }
@@ -492,7 +354,7 @@ socket.on("connection", (socket) => {
       const targetOperations: Operation[] = JSON.parse(operations);
       const captureConfig = new CaptureConfig(JSON.parse(config));
 
-      const { serverProcess, error: setupError } = await setupWebDriver(
+      const { server, error: setupError } = await setupWebDriverServer(
         captureConfig
       );
 
@@ -512,6 +374,7 @@ socket.on("connection", (socket) => {
           browserName: captureConfig.browserName,
           device: captureConfig.device,
           browserBinaryPath: "",
+          webDriverServer: server,
         });
 
         runner = new BrowserOperationRunner(client, {
@@ -582,7 +445,7 @@ socket.on("connection", (socket) => {
           JSON.stringify(serverError)
         );
       } finally {
-        serverProcess!.kill();
+        server.kill();
         socket.disconnect();
       }
     }
