@@ -266,13 +266,13 @@ socket.on("connection", (socket) => {
             capturer.selectCapturingWindow();
           }
         );
-        socket.on(ClientToServerSocketIOEvent.PAUSE_CAPTURE, () => {
-          capturer.pauseCapturing();
+        socket.on(ClientToServerSocketIOEvent.PAUSE_CAPTURE, async () => {
+          await capturer.pauseCapturing();
 
           socket.emit(ServerToClientSocketIOEvent.CAPTURE_PAUSED);
         });
-        socket.on(ClientToServerSocketIOEvent.RESUME_CAPTURE, () => {
-          capturer.resumeCapturing();
+        socket.on(ClientToServerSocketIOEvent.RESUME_CAPTURE, async () => {
+          await capturer.resumeCapturing();
 
           socket.emit(ServerToClientSocketIOEvent.CAPTURE_RESUMED);
         });

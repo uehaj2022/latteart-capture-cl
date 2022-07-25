@@ -47,7 +47,8 @@ export default class WebBrowserWindow {
     canGoBack: boolean;
     canGoForward: boolean;
   }) => void;
-  private screenTransitionHistory: ScreenTransitionHistory = new ScreenTransitionHistory();
+  private screenTransitionHistory: ScreenTransitionHistory =
+    new ScreenTransitionHistory();
   private firstUrl: string;
   private isFirstOperation: boolean;
 
@@ -200,7 +201,7 @@ export default class WebBrowserWindow {
       const capturedOperation = await this.convertToCapturedOperation([
         capturedData,
       ]);
-      await this.noticeCapturedOperations(...capturedOperation);
+      this.noticeCapturedOperations(...capturedOperation);
 
       if (capturedData.suspendedEvent.reFireFromWebdriverType === "inputDate") {
         await this.client.sendKeys(
@@ -234,6 +235,7 @@ export default class WebBrowserWindow {
     elementInfo?: ElementInfo;
     screenElements?: ElementInfo[];
     inputElements?: ElementInfo[];
+    pageSource?: string;
   }): Operation {
     return new Operation({
       type: args.type,
@@ -245,6 +247,7 @@ export default class WebBrowserWindow {
       url: this.currentScreenSummary.url,
       imageData: this.currentOperationSummary.screenshotBase64,
       inputElements: args.inputElements ?? [],
+      pageSource: args.pageSource ?? "",
     });
   }
 
@@ -256,6 +259,7 @@ export default class WebBrowserWindow {
     const operation = this.createCapturedOperation({
       type: SpecialOperationType.BROWSER_BACK,
       windowHandle: this._windowHandle,
+      pageSource: await this.client.getCurrentPageText(),
     });
     await this.client.browserBack();
 
@@ -273,6 +277,7 @@ export default class WebBrowserWindow {
     const operation = this.createCapturedOperation({
       type: SpecialOperationType.BROWSER_FORWARD,
       windowHandle: this._windowHandle,
+      pageSource: await this.client.getCurrentPageText(),
     });
     await this.client.browserForward();
 
@@ -358,9 +363,8 @@ export default class WebBrowserWindow {
     return await new CaptureScript(this.client).capturingIsPaused();
   }
 
-  private async noticeCapturedOperations(...operations: Operation[]) {
+  private noticeCapturedOperations(...operations: Operation[]) {
     for (const operation of operations) {
-      operation.pageSource = await this.client.getCurrentPageText();
       this.onGetOperation(operation);
     }
   }
@@ -472,56 +476,59 @@ export default class WebBrowserWindow {
       this.client
     ).takeScreenshotWithMarkOf(boundingRects);
 
-    return filteredDatas.map((data) => {
-      this.currentOperationSummary = {
-        screenshotBase64: screenShotBase64,
-        elementXPath: data.operation.elementInfo.xpath,
-        type: data.operation.type,
-      };
+    return Promise.all(
+      filteredDatas.map(async (data) => {
+        this.currentOperationSummary = {
+          screenshotBase64: screenShotBase64,
+          elementXPath: data.operation.elementInfo.xpath,
+          type: data.operation.type,
+        };
 
-      const elementInfo: ElementInfo = {
-        tagname: data.operation.elementInfo.tagname,
-        text: data.operation.elementInfo.text,
-        value: data.operation.elementInfo.value,
-        xpath: data.operation.elementInfo.xpath,
-        attributes: data.operation.elementInfo.attributes,
-      };
-      if (data.operation.elementInfo.checked !== undefined) {
-        elementInfo.checked = data.operation.elementInfo.checked;
-      }
-
-      let inputElements: ElementInfo[] = [];
-      inputElements = data.elements.filter((elmInfo) => {
-        let expected = false;
-        switch (elmInfo.tagname.toLowerCase()) {
-          case "input":
-            if (
-              !!elmInfo.attributes.type &&
-              elmInfo.attributes.type !== "button" &&
-              elmInfo.attributes.type !== "submit"
-            ) {
-              expected = true;
-            }
-            break;
-          case "select":
-          case "textarea":
-            expected = true;
-            break;
-          default:
-            break;
+        const elementInfo: ElementInfo = {
+          tagname: data.operation.elementInfo.tagname,
+          text: data.operation.elementInfo.text,
+          value: data.operation.elementInfo.value,
+          xpath: data.operation.elementInfo.xpath,
+          attributes: data.operation.elementInfo.attributes,
+        };
+        if (data.operation.elementInfo.checked !== undefined) {
+          elementInfo.checked = data.operation.elementInfo.checked;
         }
-        return expected;
-      });
-      this.isFirstOperation = false;
 
-      return this.createCapturedOperation({
-        input: data.operation.input,
-        type: data.operation.type,
-        elementInfo,
-        screenElements: data.elements,
-        windowHandle: this._windowHandle,
-        inputElements,
-      });
-    });
+        let inputElements: ElementInfo[] = [];
+        inputElements = data.elements.filter((elmInfo) => {
+          let expected = false;
+          switch (elmInfo.tagname.toLowerCase()) {
+            case "input":
+              if (
+                !!elmInfo.attributes.type &&
+                elmInfo.attributes.type !== "button" &&
+                elmInfo.attributes.type !== "submit"
+              ) {
+                expected = true;
+              }
+              break;
+            case "select":
+            case "textarea":
+              expected = true;
+              break;
+            default:
+              break;
+          }
+          return expected;
+        });
+        this.isFirstOperation = false;
+
+        return this.createCapturedOperation({
+          input: data.operation.input,
+          type: data.operation.type,
+          elementInfo,
+          screenElements: data.elements,
+          windowHandle: this._windowHandle,
+          inputElements,
+          pageSource: await this.client.getCurrentPageText(),
+        });
+      })
+    );
   }
 }

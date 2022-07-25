@@ -304,6 +304,7 @@ export default class WebBrowser {
           type: SpecialOperationType.SWITCH_WINDOW,
           windowHandle: from?.windowHandle ?? "",
           input: to.windowHandle,
+          pageSource: await this.client.getCurrentPageText(),
         })
       );
     }

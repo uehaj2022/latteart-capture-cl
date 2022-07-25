@@ -65,6 +65,7 @@ describe("WebBrowserは", () => {
         }),
         execute: jest.fn(),
         switchWindowTo: jest.fn(),
+        getCurrentPageText: jest.fn(),
       };
       config = new CaptureConfig();
     });
