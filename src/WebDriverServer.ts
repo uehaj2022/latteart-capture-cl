@@ -20,14 +20,18 @@ import { ChildProcessWithoutNullStreams } from "child_process";
  * WebDriver Server.
  */
 export default class WebDriverServer {
-  private process?: ChildProcessWithoutNullStreams;
-
   /**
    * Constructor.
+   * @param serverUrl WebDriver server url.
    * @param process WebDriver process.
    */
-  constructor(process?: ChildProcessWithoutNullStreams) {
-    this.process = process;
+  constructor(
+    private serverUrl: string,
+    private process?: ChildProcessWithoutNullStreams
+  ) {}
+
+  get url(): string {
+    return this.serverUrl;
   }
 
   /**

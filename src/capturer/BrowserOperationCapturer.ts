@@ -121,14 +121,19 @@ export default class BrowserOperationCapturer {
 
     let shouldDeleteCapturedData = false;
     let lastAlertIsVisible = false;
+    let pageSource = "";
 
     while (this.isCapturing()) {
       try {
         this.alertIsVisible = await this.client.alertIsVisible();
 
-        if (shouldDeleteCapturedData && !this.alertIsVisible) {
-          await this.webBrowser.currentWindow?.deleteCapturedDatas();
-          shouldDeleteCapturedData = false;
+        if (!this.alertIsVisible) {
+          pageSource = await this.client.getCurrentPageText();
+
+          if (shouldDeleteCapturedData) {
+            await this.webBrowser.currentWindow?.deleteCapturedDatas();
+            shouldDeleteCapturedData = false;
+          }
         }
 
         if (this.alertIsVisible !== lastAlertIsVisible) {
@@ -167,6 +172,7 @@ export default class BrowserOperationCapturer {
           acceptAlertOperation = currentWindow.createCapturedOperation({
             type: SpecialOperationType.ACCEPT_ALERT,
             windowHandle: currentWindow.windowHandle,
+            pageSource,
           });
 
           continue;
@@ -348,7 +354,7 @@ export default class BrowserOperationCapturer {
   /**
    * Pause capturing.
    */
-  public pauseCapturing(): void {
+  public async pauseCapturing(): Promise<void> {
     const currentWindow = this.webBrowser?.currentWindow;
 
     if (!this.capturingIsPaused && currentWindow) {
@@ -358,6 +364,7 @@ export default class BrowserOperationCapturer {
         currentWindow.createCapturedOperation({
           type: SpecialOperationType.PAUSE_CAPTURING,
           windowHandle: currentWindow.windowHandle,
+          pageSource: await this.client.getCurrentPageText(),
         })
       );
     }
@@ -366,7 +373,7 @@ export default class BrowserOperationCapturer {
   /**
    * Resume capturing.
    */
-  public resumeCapturing(): void {
+  public async resumeCapturing(): Promise<void> {
     const currentWindow = this.webBrowser?.currentWindow;
 
     if (this.capturingIsPaused && currentWindow) {
@@ -376,6 +383,7 @@ export default class BrowserOperationCapturer {
         currentWindow.createCapturedOperation({
           type: SpecialOperationType.RESUME_CAPTURING,
           windowHandle: currentWindow.windowHandle,
+          pageSource: await this.client.getCurrentPageText(),
         })
       );
     }
