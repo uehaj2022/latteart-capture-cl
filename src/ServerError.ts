@@ -23,10 +23,10 @@ export enum ServerErrorCode {
   UNKNOWN_ERROR = "unknown_error",
   INVALID_URL = "invalid_url",
   WEB_DRIVER_VERSION_MISMATCH = "web_driver_version_mismatch",
-  RUN_OPERATIONS_FAILED = "run_operations_failed",
   WEB_DRIVER_NOT_READY = "web_driver_not_ready",
   APPIUM_NOT_STARTED = "appium_not_started",
   DEVICE_NOT_CONNECTED = "device_not_connected",
+  INVALID_OPERATION = "invalid_operation",
 }
 
 /**

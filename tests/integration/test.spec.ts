@@ -90,11 +90,45 @@ describe("動作確認用", () => {
 
       capturer = new BrowserOperationCapturer(client, config, callbacks);
 
-      await capturer.start(url);
+      await capturer.start(url, () => {
+        /* Do nothing */
+      });
     } else {
       fail("URLが指定されていません。");
     }
   });
+
+  it("BrowserOperationCapturerでrunOperationを実行する", async () => {
+    const url = "";
+
+    if (url) {
+      const caps = new Capabilities();
+      caps.setPageLoadStrategy("none");
+      const client = new SeleniumWebDriverClient(
+        new Builder().withCapabilities(caps).forBrowser("chrome").build()
+      );
+
+      capturer = new BrowserOperationCapturer(client, config, callbacks);
+      const operation = new Operation({
+        input: "0",
+        type: "change",
+        elementInfo: {
+          tagname: "select",
+          xpath: "/html/body/select",
+          attributes: {},
+        },
+      });
+
+      await capturer.start(url, () => {
+        setTimeout(() => {
+          capturer.runOperation(operation);
+        }, 3000);
+      });
+    } else {
+      fail("URLが指定されていません。");
+    }
+  });
+
   it("webdriver test", async () => {
     const url = "";
 

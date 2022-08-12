@@ -171,4 +171,9 @@ export default interface WebDriverClient extends ScriptExecutor {
    * Get loading status of the current page document.
    */
   getDocumentReadyState(): Promise<string>;
+
+  /**
+   * Select item in select box.
+   */
+  selectOption(selectElementXpath: string, optionValue: string): Promise<void>;
 }

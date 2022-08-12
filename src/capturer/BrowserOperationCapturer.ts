@@ -94,7 +94,7 @@ export default class BrowserOperationCapturer {
    * Start monitoring and capturing a page.
    * @param url Target URL.
    */
-  public async start(url: string): Promise<void> {
+  public async start(url: string, onStart: () => void): Promise<void> {
     const browser = new WebBrowser(this.client, this.config, {
       onGetOperation: this.onGetOperation,
       onGetScreenTransition: this.onGetScreenTransition,
@@ -105,6 +105,7 @@ export default class BrowserOperationCapturer {
 
     try {
       await browser.open(url);
+      onStart();
     } catch (error) {
       if (error instanceof Error) {
         this.onError(error);
@@ -386,6 +387,89 @@ export default class BrowserOperationCapturer {
           pageSource: await this.client.getCurrentPageText(),
         })
       );
+    }
+  }
+
+  /**
+   * Run operation.
+   * @param operation Operation.
+   */
+  public async runOperation(operation: Operation): Promise<void> {
+    if (
+      ![
+        SpecialOperationType.ACCEPT_ALERT,
+        SpecialOperationType.DISMISS_ALERT,
+        SpecialOperationType.BROWSER_BACK,
+        SpecialOperationType.BROWSER_FORWARD,
+        SpecialOperationType.SWITCH_WINDOW,
+        "click",
+        "change",
+      ].includes(operation.type)
+    ) {
+      throw new Error("InvalidOperationError");
+    }
+    try {
+      switch (operation.type as SpecialOperationType) {
+        case SpecialOperationType.ACCEPT_ALERT:
+          await this.client.acceptAlert(operation.input);
+          return;
+
+        case SpecialOperationType.DISMISS_ALERT:
+          await this.client.dismissAlert();
+          return;
+
+        case SpecialOperationType.BROWSER_BACK:
+          await this.client.browserBack();
+          return;
+
+        case SpecialOperationType.BROWSER_FORWARD:
+          await this.client.browserForward();
+          return;
+
+        case SpecialOperationType.SWITCH_WINDOW:
+          await this.switchCapturingWindow(operation.input);
+          return;
+
+        default:
+          break;
+      }
+
+      if (operation.elementInfo === null) {
+        return;
+      }
+
+      const xpath = operation.elementInfo.xpath.toLowerCase();
+
+      switch (operation.type) {
+        case "click":
+          await this.client.clickElement(xpath);
+
+          return;
+
+        case "change":
+          if (operation.elementInfo.tagname.toLowerCase() === "select") {
+            await this.client.clickElement(xpath);
+            await this.client.selectOption(xpath, operation.input);
+          }
+
+          if (operation.elementInfo.tagname.toLowerCase() === "input") {
+            await this.client.clearAndSendKeysToElement(xpath, operation.input);
+          }
+
+          return;
+
+        default:
+          return;
+      }
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.name === "WebDriverError" || error.name === "NoSuchWindowError")
+      ) {
+        LoggingService.debug(error.name);
+      } else {
+        throw error;
+      }
     }
   }
 

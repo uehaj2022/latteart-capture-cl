@@ -25,11 +25,10 @@ import { AndroidDeviceAccessor } from "./device/AndroidDeviceAccessor";
 import { IOSDeviceAccessor } from "./device/IOSDeviceAccessor";
 import WebDriverClientFactory from "./webdriver/WebDriverClientFactory";
 import { Operation } from "./Operation";
-import BrowserOperationRunner from "./runner/BrowserOperationRunner";
 import { ServerError, ServerErrorCode } from "./ServerError";
-import { SpecialOperationType } from "./SpecialOperationType";
 import path from "path";
 import { TimestampImpl } from "./Timestamp";
+import WebDriverClient from "./webdriver/WebDriverClient";
 import { setupWebDriverServer } from "./webdriver/setupWebDriver";
 
 const appRootPath = path.relative(process.cwd(), path.dirname(__dirname));
@@ -63,8 +62,7 @@ enum ClientToServerSocketIOEvent {
   SELECT_CAPTURING_WINDOW = "select_capturing_window",
   PAUSE_CAPTURE = "pause_capture",
   RESUME_CAPTURE = "resume_capture",
-  RUN_OPERATIONS = "run_operations",
-  STOP_RUN_OPERATIONS = "stop_run_operations",
+  RUN_OPERATION = "run_operation",
 }
 
 /**
@@ -80,9 +78,9 @@ enum ServerToClientSocketIOEvent {
   ALERT_VISIBLE_CHANGED = "alert_visibility_changed",
   CAPTURE_PAUSED = "capture_paused",
   CAPTURE_RESUMED = "capture_resumed",
-  RUN_OPERATIONS_COMPLETED = "run_operations_completed",
-  RUN_OPERATIONS_CANCELED = "run_operations_canceled",
-  RUN_OPERATIONS_ABORTED = "run_operations_aborted",
+  RUN_OPERATION_COMPLETED = "run_operation_completed",
+  RUN_OPERATION_AND_SCREEN_TRANSITION_COMPLETED = "run_operation_and_screen_transition_completed",
+  INVALID_OPERATION = "invalid_operation",
   ERROR_OCCURRED = "error_occurred",
 }
 
@@ -139,7 +137,7 @@ socket.on("connection", (socket) => {
   LoggingService.info("Socket connected.");
 
   let capturer: BrowserOperationCapturer;
-  let runner: BrowserOperationRunner;
+  let client: WebDriverClient;
 
   /**
    * Start capture.
@@ -168,7 +166,7 @@ socket.on("connection", (socket) => {
       const parsedUrl = JSON.parse(url);
 
       try {
-        const client = await new WebDriverClientFactory().create({
+        client = await new WebDriverClientFactory().create({
           platformName: captureConfig.platformName,
           browserName: captureConfig.browserName,
           device: captureConfig.device,
@@ -187,6 +185,9 @@ socket.on("connection", (socket) => {
             socket.emit(
               ServerToClientSocketIOEvent.SCREEN_TRANSITION_CAPTURED,
               JSON.stringify(screenTransition)
+            );
+            socket.emit(
+              ServerToClientSocketIOEvent.RUN_OPERATION_AND_SCREEN_TRANSITION_COMPLETED
             );
           },
           onBrowserClosed: () => {
@@ -208,12 +209,16 @@ socket.on("connection", (socket) => {
             windowHandles: string[],
             currentWindowHandle: string
           ) => {
+            LoggingService.info("Browser windows changed.");
+
+            const windowsInfo = JSON.stringify({
+              windowHandles,
+              currentWindowHandle,
+            });
+            LoggingService.debug(windowsInfo);
             socket.emit(
               ServerToClientSocketIOEvent.BROWSER_WINDOWS_CHANGED,
-              JSON.stringify({
-                windowHandles,
-                currentWindowHandle,
-              })
+              windowsInfo
             );
           },
           onAlertVisibilityChanged: (isVisible: boolean) => {
@@ -276,17 +281,45 @@ socket.on("connection", (socket) => {
 
           socket.emit(ServerToClientSocketIOEvent.CAPTURE_RESUMED);
         });
+        socket.on(
+          ClientToServerSocketIOEvent.RUN_OPERATION,
+          async (operation: string) => {
+            LoggingService.info("Run operation.");
+            LoggingService.debug(operation);
 
-        socket.emit(
-          ServerToClientSocketIOEvent.CAPTURE_STARTED,
-          new TimestampImpl().epochMilliseconds().toString()
+            const targetOperation: Operation = JSON.parse(operation);
+            try {
+              await capturer.runOperation(targetOperation);
+              socket.emit(ServerToClientSocketIOEvent.RUN_OPERATION_COMPLETED);
+            } catch (error) {
+              if (!(error instanceof Error)) {
+                throw error;
+              }
+              if (error.message === "InvalidOperationError") {
+                const serverError: ServerError = {
+                  code: ServerErrorCode.INVALID_OPERATION,
+                  message: "Invalid operation.",
+                };
+                socket.emit(
+                  ServerToClientSocketIOEvent.ERROR_OCCURRED,
+                  JSON.stringify(serverError)
+                );
+              }
+            }
+          }
         );
 
-        await capturer.start(parsedUrl);
+        await capturer.start(parsedUrl, () => {
+          socket.emit(
+            ServerToClientSocketIOEvent.CAPTURE_STARTED,
+            new TimestampImpl().epochMilliseconds().toString()
+          );
+        });
       } catch (error) {
         if (!(error instanceof Error)) {
           throw error;
         }
+
         if (error.name === "InvalidArgumentError") {
           LoggingService.error(`Invalid url.: ${parsedUrl}`);
 
@@ -343,117 +376,8 @@ socket.on("connection", (socket) => {
     }
   );
 
-  /**
-   * Run operations.
-   */
-  socket.on(
-    ClientToServerSocketIOEvent.RUN_OPERATIONS,
-    async (operations: string, config = "{}") => {
-      LoggingService.info("Run operations.");
-
-      const targetOperations: Operation[] = JSON.parse(operations);
-      const captureConfig = new CaptureConfig(JSON.parse(config));
-
-      const { server, error: setupError } = await setupWebDriverServer(
-        captureConfig
-      );
-
-      if (setupError) {
-        socket.emit(
-          ServerToClientSocketIOEvent.ERROR_OCCURRED,
-          JSON.stringify(setupError)
-        );
-
-        socket.disconnect();
-        return;
-      }
-
-      try {
-        const client = await new WebDriverClientFactory().create({
-          platformName: captureConfig.platformName,
-          browserName: captureConfig.browserName,
-          device: captureConfig.device,
-          browserBinaryPath: "",
-          webDriverServer: server,
-        });
-
-        runner = new BrowserOperationRunner(client, {
-          onBrowserClosed: () => {
-            LoggingService.info("Browser closed.");
-          },
-        });
-
-        socket.on(ClientToServerSocketIOEvent.STOP_RUN_OPERATIONS, async () => {
-          await runner.quit();
-          socket.emit(ServerToClientSocketIOEvent.RUN_OPERATIONS_CANCELED);
-        });
-
-        const pauseCapturingIndex = targetOperations.findIndex(
-          (operation) => operation.type === SpecialOperationType.PAUSE_CAPTURING
-        );
-
-        if (pauseCapturingIndex >= 0) {
-          await runner.run(targetOperations.slice(0, pauseCapturingIndex + 1));
-
-          LoggingService.warn(
-            "Running operations was aborted because the capturing was paused."
-          );
-
-          socket.emit(ServerToClientSocketIOEvent.RUN_OPERATIONS_ABORTED);
-
-          return;
-        }
-
-        await runner.run(targetOperations);
-
-        socket.emit(ServerToClientSocketIOEvent.RUN_OPERATIONS_COMPLETED);
-      } catch (error) {
-        if (!(error instanceof Error)) {
-          throw error;
-        }
-        if (
-          error.name === "SessionNotCreatedError" &&
-          error.message.includes(
-            "This version of ChromeDriver only supports Chrome version"
-          )
-        ) {
-          LoggingService.error("WebDriver version mismatch.", error);
-
-          const serverError: ServerError = {
-            code: ServerErrorCode.WEB_DRIVER_VERSION_MISMATCH,
-            message: "WebDriver version mismatch.",
-          };
-
-          socket.emit(
-            ServerToClientSocketIOEvent.ERROR_OCCURRED,
-            JSON.stringify(serverError)
-          );
-
-          return;
-        }
-
-        // Other errors.
-        LoggingService.error("An unknown error has occurred.", error);
-
-        const serverError: ServerError = {
-          code: ServerErrorCode.UNKNOWN_ERROR,
-          message: "An unknown error has occurred.",
-        };
-
-        socket.emit(
-          ServerToClientSocketIOEvent.ERROR_OCCURRED,
-          JSON.stringify(serverError)
-        );
-      } finally {
-        server.kill();
-        socket.disconnect();
-      }
-    }
-  );
-
   socket.on("disconnect", (reason: string) => {
     capturer?.quit();
-    runner?.quit();
 
     if (reason === "ping timeout") {
       LoggingService.warn("Socket ping timeout.");

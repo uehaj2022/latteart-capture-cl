@@ -15,7 +15,7 @@
  */
 
 import WebDriverClient from "./WebDriverClient";
-import { Alert, By, WebDriver } from "selenium-webdriver";
+import { Alert, By, Key, WebDriver } from "selenium-webdriver";
 
 /**
  * Selenium WebDriver client.
@@ -357,5 +357,49 @@ export class SeleniumWebDriverClient implements WebDriverClient {
     } catch (error) {
       return undefined;
     }
+  }
+
+  public async selectOption(
+    selectElementXpath: string,
+    optionValue: string
+  ): Promise<void> {
+    const elementForInput = this.driver.findElement(
+      By.xpath(selectElementXpath)
+    );
+    const options = await elementForInput.findElements(By.css("option"));
+
+    const selectedIndex = (
+      await Promise.all(
+        options.map((option) => {
+          return option.getAttribute("selected");
+        })
+      )
+    ).findIndex((option) => {
+      return option === "true";
+    });
+
+    const values = await Promise.all(
+      options.map((option) => {
+        return option.getAttribute("value");
+      })
+    );
+
+    const optionIndex = values.findIndex((value) => {
+      return value === optionValue;
+    });
+
+    const index = optionIndex - selectedIndex;
+
+    if (index > 0) {
+      for (let i = 0; i < index; i++) {
+        await this.driver.actions().keyDown(Key.ARROW_DOWN).perform();
+      }
+    } else if (index < 0) {
+      for (let i = 0; i < Math.abs(index); i++) {
+        await this.driver.actions().keyDown(Key.ARROW_UP).perform();
+      }
+    }
+
+    await this.driver.actions().keyDown(Key.ENTER).perform();
   }
 }
