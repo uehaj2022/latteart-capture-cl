@@ -76,6 +76,7 @@ describe("動作確認用", () => {
     },
     platformVersion: "",
     waitTimeForStartupReload: 0,
+    isHeadlessMode: false,
   };
 
   it("BrowserOperationCapturer", async () => {

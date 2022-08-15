@@ -19,6 +19,7 @@ import { PlatformName, Browser } from "../CaptureConfig";
 import { Builder, Capabilities, ThenableWebDriver } from "selenium-webdriver";
 import { SeleniumWebDriverClient } from "./SeleniumWebDriverClient";
 import { Options } from "selenium-webdriver/chrome";
+import { Options as EdgeOptions } from "selenium-webdriver/edge";
 import WebDriverServer from "../WebDriverServer";
 
 /**
@@ -46,6 +47,7 @@ export default class WebDriverClientFactory {
     };
     browserBinaryPath: string;
     webDriverServer: WebDriverServer;
+    isHeadlessMode: boolean;
   }): Promise<WebDriverClient> {
     const driver = await (async () => {
       if (params.platformName === PlatformName.Android) {
@@ -64,7 +66,8 @@ export default class WebDriverClientFactory {
       return await this.createWebDriverBuilderForPC(
         params.browserBinaryPath,
         params.browserName,
-        params.webDriverServer.url
+        params.webDriverServer.url,
+        params.isHeadlessMode
       );
     })();
 
@@ -74,43 +77,56 @@ export default class WebDriverClientFactory {
   private createWebDriverBuilderForPC(
     browserPath: string,
     browserName: Browser,
-    serverUrl: string
+    serverUrl: string,
+    isHeadlessMode: boolean
   ) {
     if (browserName === Browser.Edge) {
-      return this.createEdgeWebDriverBuilder(serverUrl);
+      return this.createEdgeWebDriverBuilder(serverUrl, isHeadlessMode);
     } else {
-      return this.createChromeWebDriverBuilder(browserPath, serverUrl);
+      return this.createChromeWebDriverBuilder(
+        browserPath,
+        serverUrl,
+        isHeadlessMode
+      );
     }
   }
 
   private createChromeWebDriverBuilder(
     browserPath: string,
-    serverUrl: string
+    serverUrl: string,
+    isHeadlessMode: boolean
   ): ThenableWebDriver {
     const caps = new Capabilities();
     caps.setPageLoadStrategy("eager");
+    const options = new Options();
     if (browserPath !== "") {
-      const options = new Options().setChromeBinaryPath(browserPath);
-      return new Builder()
-        .withCapabilities(caps)
-        .forBrowser("chrome")
-        .setChromeOptions(options)
-        .usingServer(serverUrl)
-        .build();
+      options.setChromeBinaryPath(browserPath);
+    }
+    if (isHeadlessMode) {
+      options.addArguments("--headless");
     }
     return new Builder()
       .withCapabilities(caps)
       .forBrowser("chrome")
+      .setChromeOptions(options)
       .usingServer(serverUrl)
       .build();
   }
 
-  private createEdgeWebDriverBuilder(serverUrl: string): ThenableWebDriver {
+  private createEdgeWebDriverBuilder(
+    serverUrl: string,
+    isHeadlessMode: boolean
+  ): ThenableWebDriver {
     const caps = new Capabilities();
     caps.setPageLoadStrategy("eager");
+    const options = new EdgeOptions();
+    if (isHeadlessMode) {
+      options.addArguments("--headless");
+    }
     return new Builder()
       .withCapabilities(caps)
       .forBrowser("MicrosoftEdge")
+      .setEdgeOptions(options)
       .usingServer(serverUrl)
       .build();
   }
