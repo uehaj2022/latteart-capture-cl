@@ -63,6 +63,7 @@ enum ClientToServerSocketIOEvent {
   PAUSE_CAPTURE = "pause_capture",
   RESUME_CAPTURE = "resume_capture",
   RUN_OPERATION = "run_operation",
+  AUTOFILL = "autofill",
 }
 
 /**
@@ -79,6 +80,7 @@ enum ServerToClientSocketIOEvent {
   CAPTURE_PAUSED = "capture_paused",
   CAPTURE_RESUMED = "capture_resumed",
   RUN_OPERATION_COMPLETED = "run_operation_completed",
+  AUTOFILL_COMPLETED = "autofill_completed",
   RUN_OPERATION_AND_SCREEN_TRANSITION_COMPLETED = "run_operation_and_screen_transition_completed",
   INVALID_OPERATION = "invalid_operation",
   ERROR_OCCURRED = "error_occurred",
@@ -282,6 +284,19 @@ socket.on("connection", (socket) => {
 
           socket.emit(ServerToClientSocketIOEvent.CAPTURE_RESUMED);
         });
+        socket.on(
+          ClientToServerSocketIOEvent.AUTOFILL,
+          async (inputValueSets: string) => {
+            try {
+              await capturer.autofill(JSON.parse(inputValueSets));
+              socket.emit(ServerToClientSocketIOEvent.AUTOFILL_COMPLETED);
+            } catch (e) {
+              if (e instanceof Error) {
+                LoggingService.error("Autofill failed.", e);
+              }
+            }
+          }
+        );
         socket.on(
           ClientToServerSocketIOEvent.RUN_OPERATION,
           async (operation: string) => {

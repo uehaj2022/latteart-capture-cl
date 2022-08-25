@@ -21,6 +21,7 @@ import { CaptureConfig } from "../CaptureConfig";
 import WebDriverClient from "@/webdriver/WebDriverClient";
 import ScreenTransition from "../ScreenTransition";
 import { SpecialOperationType } from "../SpecialOperationType";
+import Autofill from "../webdriver/autofill";
 
 /**
  * The class for monitoring and getting browser operations.
@@ -387,6 +388,23 @@ export default class BrowserOperationCapturer {
           pageSource: await this.client.getCurrentPageText(),
         })
       );
+    }
+  }
+
+  public async autofill(
+    inputValueSets: {
+      locatorType: "id" | "xpath";
+      locator: string;
+      locatorMatchType: "equals" | "regex";
+      inputValue: string;
+    }[]
+  ): Promise<void> {
+    if (this.webBrowser?.currentWindow) {
+      await new Autofill(
+        this.client,
+        inputValueSets,
+        this.webBrowser.currentWindow
+      ).execute();
     }
   }
 

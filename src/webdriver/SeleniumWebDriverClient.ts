@@ -15,7 +15,7 @@
  */
 
 import WebDriverClient from "./WebDriverClient";
-import { Alert, By, Key, WebDriver } from "selenium-webdriver";
+import { Alert, By, Key, WebDriver, WebElement } from "selenium-webdriver";
 
 /**
  * Selenium WebDriver client.
@@ -401,5 +401,17 @@ export class SeleniumWebDriverClient implements WebDriverClient {
     }
 
     await this.driver.actions().keyDown(Key.ENTER).perform();
+  }
+
+  public async getElementByXpath(xpath: string): Promise<WebElement> {
+    return await this.driver.findElement(By.xpath(xpath));
+  }
+
+  public async getElementById(id: string): Promise<WebElement> {
+    return await this.driver.findElement(By.id(id));
+  }
+
+  public async getElementByTagName(tagName: string): Promise<WebElement[]> {
+    return await this.driver.findElements(By.tagName(tagName));
   }
 }
