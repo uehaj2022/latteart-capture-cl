@@ -102,6 +102,7 @@ export default class Autofill {
     target: WebElement,
     value: string
   ): Promise<void> {
+    await target.clear();
     await target.sendKeys(value);
   }
 
