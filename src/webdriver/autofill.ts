@@ -22,6 +22,7 @@ import WebBrowserWindow from "@/capturer/browser/window/WebBrowserWindow";
 import { By, WebElement } from "selenium-webdriver";
 import WebDriverClient from "./WebDriverClient";
 import HTMLParser from "node-html-parser";
+import LoggingService from "../logger/LoggingService";
 
 export type InputValueSet = {
   locatorType: "id" | "xpath";
@@ -102,8 +103,14 @@ export default class Autofill {
     target: WebElement,
     value: string
   ): Promise<void> {
-    await target.clear();
-    await target.sendKeys(value);
+    try {
+      await target.clear();
+      await target.sendKeys(value);
+    } catch (error) {
+      if (error instanceof Error) {
+        LoggingService.error("failed setValueToText", error);
+      }
+    }
   }
 
   public async setValueToCheckbox(
@@ -112,7 +119,13 @@ export default class Autofill {
   ): Promise<void> {
     const v = await target.isSelected();
     if ((v && value === "off") || (!v && value === "on")) {
-      await target.click();
+      try {
+        await target.click();
+      } catch (error) {
+        if (error instanceof Error) {
+          LoggingService.error("failed setValueToCheckbox", error);
+        }
+      }
     }
   }
 
@@ -122,7 +135,13 @@ export default class Autofill {
   ): Promise<void> {
     const v = await target.isSelected();
     if (!v && value === "on") {
-      await target.click();
+      try {
+        await target.click();
+      } catch (error) {
+        if (error instanceof Error) {
+          LoggingService.error("failed setValueToCheckbox", error);
+        }
+      }
     }
   }
 
@@ -150,10 +169,17 @@ export default class Autofill {
       }
     }
     if (targetOption === null) {
-      throw new Error("Option not found.");
+      LoggingService.error("option not found.");
+      return;
     }
-    await target.click();
-    await targetOption.click();
+    try {
+      await target.click();
+      await targetOption.click();
+    } catch (error) {
+      if (error instanceof Error) {
+        LoggingService.error("failed setValueToCheckbox", error);
+      }
+    }
   }
 
   public async setValueToDate(
@@ -190,7 +216,15 @@ export default class Autofill {
   private async getWebElementsByRegexId(
     locator: string
   ): Promise<WebElement[]> {
-    const regex = new RegExp(locator);
+    let regex: RegExp;
+    try {
+      regex = new RegExp(locator);
+    } catch (error) {
+      if (error instanceof Error) {
+        LoggingService.error("failed new Regex", error);
+      }
+      return [];
+    }
     if (!this.idSet) {
       if (this.pageSource === null) {
         this.pageSource = await this.client.getCurrentPageSource();
@@ -213,7 +247,15 @@ export default class Autofill {
   private async getWebElementsByRegexXpath(
     locator: string
   ): Promise<WebElement[]> {
-    const regex = new RegExp(locator);
+    let regex: RegExp;
+    try {
+      regex = new RegExp(locator);
+    } catch (error) {
+      if (error instanceof Error) {
+        LoggingService.error("failed new Regex", error);
+      }
+      return [];
+    }
     if (!this.xpathList) {
       if (this.pageSource === null) {
         this.pageSource = await this.client.getCurrentPageSource();
