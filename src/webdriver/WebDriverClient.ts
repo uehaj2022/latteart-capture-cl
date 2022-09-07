@@ -180,6 +180,14 @@ export default interface WebDriverClient extends ScriptExecutor {
   selectOption(selectElementXpath: string, optionValue: string): Promise<void>;
 
   /**
+   * Select item in select box using web element.
+   */
+  selectOptionUsingWebElement(
+    elementForInput: WebElement,
+    optionValue: string
+  ): Promise<void>;
+
+  /**
    * Get element by xpath
    * @param xpath
    */

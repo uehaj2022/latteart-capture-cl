@@ -363,9 +363,16 @@ export class SeleniumWebDriverClient implements WebDriverClient {
     selectElementXpath: string,
     optionValue: string
   ): Promise<void> {
-    const elementForInput = this.driver.findElement(
+    const elementForInput = await this.driver.findElement(
       By.xpath(selectElementXpath)
     );
+    await this.selectOptionUsingWebElement(elementForInput, optionValue);
+  }
+
+  public async selectOptionUsingWebElement(
+    elementForInput: WebElement,
+    optionValue: string
+  ): Promise<void> {
     const options = await elementForInput.findElements(By.css("option"));
 
     const selectedIndex = (

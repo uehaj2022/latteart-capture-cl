@@ -19,7 +19,7 @@
  */
 
 import WebBrowserWindow from "@/capturer/browser/window/WebBrowserWindow";
-import { By, WebElement } from "selenium-webdriver";
+import { WebElement } from "selenium-webdriver";
 import WebDriverClient from "./WebDriverClient";
 import HTMLParser from "node-html-parser";
 import LoggingService from "../logger/LoggingService";
@@ -51,8 +51,9 @@ export default class Autofill {
       );
 
       for (const webElement of targetWebElements) {
-        await this.currentWindow.sleep(500);
+        await this.currentWindow.sleep(250);
         await this.currentWindow.focus();
+        await this.currentWindow.sleep(250);
 
         const tagName = await webElement.getTagName();
         if (tagName === "select") {
@@ -149,35 +150,12 @@ export default class Autofill {
     target: WebElement,
     value: string
   ): Promise<void> {
-    const options = await target.findElements(By.tagName("option"));
-    let targetOption = null;
-    for (const option of options) {
-      const v = await option.getAttribute("value");
-      if (v !== undefined) {
-        if (v === value) {
-          targetOption = option;
-          break;
-        } else {
-          continue;
-        }
-      }
-
-      const text = await option.getText();
-      if (text === value) {
-        targetOption = option;
-        break;
-      }
-    }
-    if (targetOption === null) {
-      LoggingService.error("option not found.");
-      return;
-    }
     try {
       await target.click();
-      await targetOption.click();
+      await this.client.selectOptionUsingWebElement(target, value);
     } catch (error) {
       if (error instanceof Error) {
-        LoggingService.error("failed setValueToCheckbox", error);
+        LoggingService.error("failed selectOptionUsingWebElement", error);
       }
     }
   }
