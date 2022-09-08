@@ -177,11 +177,18 @@ export default class Autofill {
     locatorMatchType: "equals" | "regex"
   ): Promise<WebElement[]> {
     if (locatorMatchType === "equals") {
-      const element =
-        locatorType === "id"
-          ? await this.client.getElementById(locator)
-          : await this.client.getElementByXpath(locator);
-      return [element];
+      try {
+        const element =
+          locatorType === "id"
+            ? await this.client.getElementById(locator)
+            : await this.client.getElementByXpath(locator);
+        return [element];
+      } catch (error) {
+        if (error instanceof Error) {
+          LoggingService.error("failed get element", error);
+        }
+        return [];
+      }
     }
 
     if (locatorType === "id") {
