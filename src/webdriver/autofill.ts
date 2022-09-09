@@ -19,7 +19,7 @@
  */
 
 import WebBrowserWindow from "@/capturer/browser/window/WebBrowserWindow";
-import { WebElement } from "selenium-webdriver";
+import { Key, WebElement } from "selenium-webdriver";
 import WebDriverClient from "./WebDriverClient";
 import HTMLParser from "node-html-parser";
 import LoggingService from "../logger/LoggingService";
@@ -105,8 +105,15 @@ export default class Autofill {
     value: string
   ): Promise<void> {
     try {
-      await target.clear();
-      await target.sendKeys(value);
+      if (value === "") {
+        const v = await target.getAttribute("value");
+        for (let i = 0; v.length > i; i++) {
+          await target.sendKeys(Key.BACK_SPACE);
+        }
+      } else {
+        await target.clear();
+        await target.sendKeys(value);
+      }
     } catch (error) {
       if (error instanceof Error) {
         LoggingService.error("failed setValueToText", error);

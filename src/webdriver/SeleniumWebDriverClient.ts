@@ -306,7 +306,10 @@ export class SeleniumWebDriverClient implements WebDriverClient {
   ): Promise<void> {
     const elementForInput = this.driver.findElement(By.xpath(xpath));
 
-    await elementForInput.clear();
+    const v = await elementForInput.getAttribute("value");
+    for (let i = 0; v.length > i; i++) {
+      await elementForInput.sendKeys(Key.BACK_SPACE);
+    }
 
     return elementForInput.sendKeys(value);
   }
