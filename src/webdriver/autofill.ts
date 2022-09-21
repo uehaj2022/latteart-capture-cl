@@ -21,21 +21,16 @@
 import WebBrowserWindow from "@/capturer/browser/window/WebBrowserWindow";
 import { Key, WebElement } from "selenium-webdriver";
 import WebDriverClient from "./WebDriverClient";
-import HTMLParser from "node-html-parser";
 import LoggingService from "../logger/LoggingService";
 
 export type InputValueSet = {
   locatorType: "id" | "xpath";
   locator: string;
-  locatorMatchType: "equals" | "regex";
+  locatorMatchType: "equals" | "contains";
   inputValue: string;
 };
 
 export default class Autofill {
-  private pageSource: string | null = null;
-  private xpathList: string[] | null = null;
-  private idSet: Set<string> | null = null;
-
   constructor(
     private readonly client: WebDriverClient,
     private readonly inputValueSets: InputValueSet[],
@@ -87,17 +82,6 @@ export default class Autofill {
         }
       }
     }
-  }
-
-  public extractIdSetFromPageSource(pageSource: string): Set<string> {
-    const regex = RegExp(/id\s*=\s*(?:"[^"]+"|'[^']+'|[^"'=<>\s]+)/g);
-    let match: RegExpExecArray | null = null;
-    const idSet = new Set<string>();
-    while ((match = regex.exec(pageSource)) !== null) {
-      const id = match[0].split("=")[1].replace(/"/g, "").replace(/'/g, "");
-      idSet.add(id);
-    }
-    return idSet;
   }
 
   public async setValueToText(
@@ -181,139 +165,21 @@ export default class Autofill {
   private async getWebElements(
     locatorType: "id" | "xpath",
     locator: string,
-    locatorMatchType: "equals" | "regex"
+    locatorMatchType: "equals" | "contains"
   ): Promise<WebElement[]> {
-    if (locatorMatchType === "equals") {
-      try {
-        const element =
-          locatorType === "id"
-            ? await this.client.getElementById(locator)
-            : await this.client.getElementByXpath(locator);
-        return [element];
-      } catch (error) {
-        if (error instanceof Error) {
-          LoggingService.error("failed get element", error);
-        }
-        return [];
-      }
-    }
-
-    if (locatorType === "id") {
-      return this.getWebElementsByRegexId(locator);
-    }
-
-    return this.getWebElementsByRegexXpath(locator);
-  }
-
-  private async getWebElementsByRegexId(
-    locator: string
-  ): Promise<WebElement[]> {
-    let regex: RegExp;
     try {
-      regex = new RegExp(locator);
-    } catch (error) {
-      if (error instanceof Error) {
-        LoggingService.error("failed new Regex", error);
-      }
-      return [];
-    }
-    if (!this.idSet) {
-      if (this.pageSource === null) {
-        this.pageSource = await this.client.getCurrentPageSource();
-      }
-      this.idSet = this.extractIdSetFromPageSource(this.pageSource);
-    }
-    const matchIds: string[] = [];
-    this.idSet.forEach((id) => {
-      if (regex.test(id)) {
-        matchIds.push(id);
-      }
-    });
-    return Promise.all(
-      matchIds.map(async (id) => {
-        return await this.client.getElementById(id);
-      })
-    );
-  }
-
-  private async getWebElementsByRegexXpath(
-    locator: string
-  ): Promise<WebElement[]> {
-    let regex: RegExp;
-    try {
-      regex = new RegExp(locator);
-    } catch (error) {
-      if (error instanceof Error) {
-        LoggingService.error("failed new Regex", error);
-      }
-      return [];
-    }
-    if (!this.xpathList) {
-      if (this.pageSource === null) {
-        this.pageSource = await this.client.getCurrentPageSource();
-      }
-      this.xpathList = this.getAllXpath(this.pageSource);
-    }
-    const matchXpath = this.xpathList.filter((xpath) => {
-      return regex.test(xpath);
-    });
-
-    return Promise.all(
-      matchXpath.map(async (xpath) => {
-        return await this.client.getElementByXpath(xpath);
-      })
-    );
-  }
-
-  private getAllXpath(pageSource: string): string[] {
-    const result: string[] = [];
-
-    const getTagName = (element: Node): string => {
-      return (element as any).rawTagName.toLowerCase();
-    };
-
-    const elementSearch = (element: Node, path: string[], index: number) => {
-      path.push(
-        `${getTagName(element)}${index === 0 ? "" : "[" + index + "]"}`
+      return await this.client.getElementsByXpath(
+        locatorType === "id" && locatorMatchType === "equals"
+          ? `//*[@id="${locator}"]`
+          : locatorType === "id" && locatorMatchType === "contains"
+          ? `//*[contains(@id,"${locator}")]`
+          : locator
       );
-
-      const children: Node[] = [];
-      const tagHasMultipleMap: Map<string, boolean> = new Map();
-      element.childNodes.forEach((v) => {
-        if (v.nodeType === 1) {
-          const name = getTagName(v);
-          tagHasMultipleMap.has(name)
-            ? tagHasMultipleMap.set(name, true)
-            : tagHasMultipleMap.set(name, false);
-
-          children.push(v);
-        }
-      });
-
-      if (children.length === 0) {
-        result.push(`/${path.join("/")}`);
-        return;
+    } catch (error) {
+      if (error instanceof Error) {
+        LoggingService.error("failed get element", error);
       }
-
-      const tags: string[] = [];
-      children.forEach((child) => {
-        const tagName = getTagName(child);
-        tags.push(tagName);
-        elementSearch(
-          child,
-          [...path],
-          tagHasMultipleMap.get(tagName)
-            ? tags.reduce((pre, cur) => {
-                return cur === tagName ? pre + 1 : pre;
-              }, 0)
-            : 0
-        );
-      });
-    };
-    const root = HTMLParser.parse(pageSource, { voidTag: { tags: [] } });
-    const htmlTag = root.childNodes.filter((node) => node.nodeType === 1);
-    elementSearch(htmlTag[0] as unknown as Node, [], 0);
-
-    return result;
+      return [];
+    }
   }
 }

@@ -395,7 +395,7 @@ export default class BrowserOperationCapturer {
     inputValueSets: {
       locatorType: "id" | "xpath";
       locator: string;
-      locatorMatchType: "equals" | "regex";
+      locatorMatchType: "equals" | "contains";
       inputValue: string;
     }[]
   ): Promise<void> {
