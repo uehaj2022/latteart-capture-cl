@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { WebElement } from "selenium-webdriver";
+
 /**
  * The class for executing script.
  */
@@ -171,4 +173,35 @@ export default interface WebDriverClient extends ScriptExecutor {
    * Get loading status of the current page document.
    */
   getDocumentReadyState(): Promise<string>;
+
+  /**
+   * Select item in select box.
+   */
+  selectOption(selectElementXpath: string, optionValue: string): Promise<void>;
+
+  /**
+   * Select item in select box using web element.
+   */
+  selectOptionUsingWebElement(
+    elementForInput: WebElement,
+    optionValue: string
+  ): Promise<void>;
+
+  /**
+   * Get element by xpath
+   * @param xpath
+   */
+  getElementByXpath(xpath: string): Promise<WebElement>;
+
+  /**
+   * Get elements by xpath
+   * @param xpath
+   */
+  getElementsByXpath(xpath: string): Promise<WebElement[]>;
+
+  /**
+   * Get element by tagname
+   * @param tagName
+   */
+  getElementByTagName(tagName: string): Promise<WebElement[]>;
 }

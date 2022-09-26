@@ -66,6 +66,11 @@ export class CaptureConfig {
   public waitTimeForStartupReload = 0;
 
   /**
+   * Set the browser's headless mode.
+   */
+  public isHeadlessMode = false;
+
+  /**
    * Constructor.
    * @param init The information for initialization.
    */

@@ -15,7 +15,7 @@
  */
 
 import WebDriverClient from "./WebDriverClient";
-import { Alert, By, WebDriver } from "selenium-webdriver";
+import { Alert, By, Key, WebDriver, WebElement } from "selenium-webdriver";
 
 /**
  * Selenium WebDriver client.
@@ -306,7 +306,10 @@ export class SeleniumWebDriverClient implements WebDriverClient {
   ): Promise<void> {
     const elementForInput = this.driver.findElement(By.xpath(xpath));
 
-    await elementForInput.clear();
+    const v = await elementForInput.getAttribute("value");
+    for (let i = 0; v.length > i; i++) {
+      await elementForInput.sendKeys(Key.BACK_SPACE);
+    }
 
     return elementForInput.sendKeys(value);
   }
@@ -357,5 +360,68 @@ export class SeleniumWebDriverClient implements WebDriverClient {
     } catch (error) {
       return undefined;
     }
+  }
+
+  public async selectOption(
+    selectElementXpath: string,
+    optionValue: string
+  ): Promise<void> {
+    const elementForInput = await this.driver.findElement(
+      By.xpath(selectElementXpath)
+    );
+    await this.selectOptionUsingWebElement(elementForInput, optionValue);
+  }
+
+  public async selectOptionUsingWebElement(
+    elementForInput: WebElement,
+    optionValue: string
+  ): Promise<void> {
+    const options = await elementForInput.findElements(By.css("option"));
+
+    const selectedIndex = (
+      await Promise.all(
+        options.map((option) => {
+          return option.getAttribute("selected");
+        })
+      )
+    ).findIndex((option) => {
+      return option === "true";
+    });
+
+    const values = await Promise.all(
+      options.map((option) => {
+        return option.getAttribute("value");
+      })
+    );
+
+    const optionIndex = values.findIndex((value) => {
+      return value === optionValue;
+    });
+
+    const index = optionIndex - selectedIndex;
+
+    if (index > 0) {
+      for (let i = 0; i < index; i++) {
+        await this.driver.actions().keyDown(Key.ARROW_DOWN).perform();
+      }
+    } else if (index < 0) {
+      for (let i = 0; i < Math.abs(index); i++) {
+        await this.driver.actions().keyDown(Key.ARROW_UP).perform();
+      }
+    }
+
+    await this.driver.actions().keyDown(Key.ENTER).perform();
+  }
+
+  public async getElementByXpath(xpath: string): Promise<WebElement> {
+    return await this.driver.findElement(By.xpath(xpath));
+  }
+
+  public async getElementsByXpath(xpath: string): Promise<WebElement[]> {
+    return await this.driver.findElements(By.xpath(xpath));
+  }
+
+  public async getElementByTagName(tagName: string): Promise<WebElement[]> {
+    return await this.driver.findElements(By.tagName(tagName));
   }
 }
