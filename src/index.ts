@@ -16,7 +16,7 @@
 
 import express from "express";
 import http from "http";
-import socketIO from "socket.io";
+import { Server } from "socket.io";
 import BrowserOperationCapturer from "./capturer/BrowserOperationCapturer";
 import { CaptureConfig } from "./CaptureConfig";
 import LoggingService from "./logger/LoggingService";
@@ -46,7 +46,9 @@ app.use(function (req, res, next) {
 });
 
 const server = http.createServer(app);
-const socket = socketIO(server);
+const io = new Server(server, {
+  allowEIO3: true,
+});
 
 /**
  * The Socket.IO event that is sent to server from client.
@@ -135,7 +137,7 @@ app.get(`${v1RootPath}/server-name`, (req, res) => {
   res.json("latteart-capture-cl");
 });
 
-socket.on("connection", (socket) => {
+io.on("connection", (socket) => {
   LoggingService.info("Socket connected.");
 
   let capturer: BrowserOperationCapturer;
