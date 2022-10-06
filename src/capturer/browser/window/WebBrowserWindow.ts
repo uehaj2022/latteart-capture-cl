@@ -342,6 +342,18 @@ export default class WebBrowserWindow {
   }
 
   /**
+   * Remove Screen Lock.
+   */
+  public async removeScreenLock(): Promise<void> {
+    const setTime = 250;
+    await this.sleep(setTime);
+    await this.focus();
+    await this.sleep(setTime);
+
+    LoggingService.debug(`removeScreenLock`);
+  }
+
+  /**
    * Pause capturing.
    */
   public async pauseCapturing(): Promise<void> {
@@ -452,6 +464,14 @@ export default class WebBrowserWindow {
       if (
         data.operation.type === "click" &&
         data.operation.elementInfo.tagname.toLowerCase() === "select"
+      ) {
+        return false;
+      }
+
+      // Ignore the click event when clicking an input element of calendar type.
+      if (
+        data.operation.type === "click" &&
+        data.operation.elementInfo.attributes.type === "date"
       ) {
         return false;
       }

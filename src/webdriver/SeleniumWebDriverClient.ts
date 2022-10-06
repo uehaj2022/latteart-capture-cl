@@ -224,7 +224,13 @@ export class SeleniumWebDriverClient implements WebDriverClient {
       return await this.driver.findElement(By.css("body")).getText();
     } catch (error) {
       if (error instanceof Error) {
-        if (error.name == "NoSuchWindowError") {
+        if (
+          [
+            "NoSuchWindowError",
+            "NoSuchElementError",
+            "StaleElementReferenceError",
+          ].includes(error.name)
+        ) {
           return "";
         }
       }

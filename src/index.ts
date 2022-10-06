@@ -82,6 +82,7 @@ enum ServerToClientSocketIOEvent {
   CAPTURE_PAUSED = "capture_paused",
   CAPTURE_RESUMED = "capture_resumed",
   RUN_OPERATION_COMPLETED = "run_operation_completed",
+  RUN_OPERATION_FAILED = "run_operation_failed",
   AUTOFILL_COMPLETED = "autofill_completed",
   RUN_OPERATION_AND_SCREEN_TRANSITION_COMPLETED = "run_operation_and_screen_transition_completed",
   INVALID_OPERATION = "invalid_operation",
@@ -319,7 +320,17 @@ io.on("connection", (socket) => {
                   message: "Invalid operation.",
                 };
                 socket.emit(
-                  ServerToClientSocketIOEvent.ERROR_OCCURRED,
+                  ServerToClientSocketIOEvent.RUN_OPERATION_FAILED,
+                  JSON.stringify(serverError)
+                );
+              }
+              if (error.message === "ElementNotFound") {
+                const serverError: ServerError = {
+                  code: ServerErrorCode.ELEMENT_NOT_FOUND,
+                  message: "Element not found.",
+                };
+                socket.emit(
+                  ServerToClientSocketIOEvent.RUN_OPERATION_FAILED,
                   JSON.stringify(serverError)
                 );
               }

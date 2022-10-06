@@ -27,6 +27,7 @@ export enum ServerErrorCode {
   APPIUM_NOT_STARTED = "appium_not_started",
   DEVICE_NOT_CONNECTED = "device_not_connected",
   INVALID_OPERATION = "invalid_operation",
+  ELEMENT_NOT_FOUND = "element_not_found",
 }
 
 /**

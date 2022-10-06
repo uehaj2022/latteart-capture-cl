@@ -426,6 +426,12 @@ export default class BrowserOperationCapturer {
     ) {
       throw new Error("InvalidOperationError");
     }
+    if (!this.webBrowser?.currentWindow) {
+      throw new Error("CurrentWindowNothing");
+    } else {
+      await this.webBrowser.currentWindow.removeScreenLock();
+    }
+
     try {
       switch (operation.type as SpecialOperationType) {
         case SpecialOperationType.ACCEPT_ALERT:
@@ -458,6 +464,12 @@ export default class BrowserOperationCapturer {
 
       const xpath = operation.elementInfo.xpath.toLowerCase();
 
+      const elements = await this.client.getElementsByXpath(xpath);
+
+      if (elements.length === 0) {
+        throw new Error("ElementNotFound");
+      }
+
       switch (operation.type) {
         case "click":
           await this.client.clickElement(xpath);
@@ -475,7 +487,12 @@ export default class BrowserOperationCapturer {
               operation.elementInfo.tagname.toLowerCase()
             )
           ) {
-            await this.client.clearAndSendKeysToElement(xpath, operation.input);
+            const inputValue =
+              operation.elementInfo.attributes.type === "date"
+                ? "00" + operation.input
+                : operation.input;
+
+            await this.client.clearAndSendKeysToElement(xpath, inputValue);
           }
 
           return;
