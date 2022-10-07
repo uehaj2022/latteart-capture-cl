@@ -220,19 +220,24 @@ export default class BrowserOperationCapturer {
           error.name === "UnexpectedAlertOpenError" ||
           error.name === "TimeoutError"
         ) {
-          LoggingService.debug(error.name);
+          LoggingService.debug(`${error}`);
           continue;
         }
 
-        await this.webBrowser!.close();
+        try {
+          await this.webBrowser.close();
+        } catch (error) {
+          LoggingService.debug(`${error}`);
+        }
 
         if (
           error.name === "WebDriverError" ||
-          error.name === "NoSuchWindowError"
+          error.name === "NoSuchWindowError" ||
+          (error.name === "Error" && error.message.startsWith("ECONNREFUSED"))
         ) {
-          LoggingService.debug(error.name);
+          LoggingService.debug(`${error}`);
 
-          continue;
+          break;
         }
 
         throw error;
