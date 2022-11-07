@@ -22,6 +22,7 @@ import WebDriverClient from "@/webdriver/WebDriverClient";
 import ScreenTransition from "../ScreenTransition";
 import { SpecialOperationType } from "../SpecialOperationType";
 import Autofill from "../webdriver/autofill";
+import { TimestampImpl } from "../Timestamp";
 
 /**
  * The class for monitoring and getting browser operations.
@@ -181,7 +182,12 @@ export default class BrowserOperationCapturer {
         }
 
         if (acceptAlertOperation) {
-          this.onGetOperation(acceptAlertOperation);
+          this.onGetOperation(
+            new Operation({
+              ...acceptAlertOperation,
+              timestamp: new TimestampImpl().epochMilliseconds().toString(),
+            })
+          );
 
           acceptAlertOperation = null;
         }
@@ -431,8 +437,16 @@ export default class BrowserOperationCapturer {
     ) {
       throw new Error("InvalidOperationError");
     }
+
     if (!this.webBrowser?.currentWindow) {
       throw new Error("CurrentWindowNothing");
+    }
+
+    if (
+      operation.type === SpecialOperationType.ACCEPT_ALERT ||
+      operation.type === SpecialOperationType.DISMISS_ALERT
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
     } else {
       await this.webBrowser.currentWindow.removeScreenLock();
     }
@@ -440,11 +454,17 @@ export default class BrowserOperationCapturer {
     try {
       switch (operation.type as SpecialOperationType) {
         case SpecialOperationType.ACCEPT_ALERT:
-          await this.client.acceptAlert(operation.input);
+          while (await this.client.alertIsVisible()) {
+            await this.client.acceptAlert(operation.input);
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          }
           return;
 
         case SpecialOperationType.DISMISS_ALERT:
-          await this.client.dismissAlert();
+          while (await this.client.alertIsVisible()) {
+            await this.client.dismissAlert();
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          }
           return;
 
         case SpecialOperationType.BROWSER_BACK:
