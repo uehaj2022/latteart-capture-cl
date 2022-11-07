@@ -448,11 +448,11 @@ export default class BrowserOperationCapturer {
           return;
 
         case SpecialOperationType.BROWSER_BACK:
-          await this.client.browserBack();
+          this.browserBack();
           return;
 
         case SpecialOperationType.BROWSER_FORWARD:
-          await this.client.browserForward();
+          this.browserForward();
           return;
 
         case SpecialOperationType.SWITCH_WINDOW:
