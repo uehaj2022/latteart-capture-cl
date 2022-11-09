@@ -367,9 +367,12 @@ io.on("connection", (socket) => {
 
         if (
           error.name === "SessionNotCreatedError" &&
-          error.message.includes(
+          (error.message.includes(
             "This version of ChromeDriver only supports Chrome version"
-          )
+          ) ||
+            error.message.includes(
+              "This version of Microsoft Edge WebDriver only supports Microsoft Edge version"
+            ))
         ) {
           LoggingService.error("WebDriver version mismatch.", error);
 
