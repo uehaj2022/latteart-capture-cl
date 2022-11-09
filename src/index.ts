@@ -306,7 +306,10 @@ io.on("connection", (socket) => {
             LoggingService.info("Run operation.");
             LoggingService.debug(operation);
 
-            const targetOperation: Operation = JSON.parse(operation);
+            const targetOperation: Pick<
+              Operation,
+              "input" | "type" | "elementInfo"
+            > = JSON.parse(operation);
             try {
               await capturer.runOperation(targetOperation);
               socket.emit(ServerToClientSocketIOEvent.RUN_OPERATION_COMPLETED);

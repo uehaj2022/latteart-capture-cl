@@ -423,7 +423,9 @@ export default class BrowserOperationCapturer {
    * Run operation.
    * @param operation Operation.
    */
-  public async runOperation(operation: Operation): Promise<void> {
+  public async runOperation(
+    operation: Pick<Operation, "input" | "type" | "elementInfo">
+  ): Promise<void> {
     if (
       ![
         SpecialOperationType.ACCEPT_ALERT,
