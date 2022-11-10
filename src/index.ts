@@ -65,6 +65,7 @@ enum ClientToServerSocketIOEvent {
   PAUSE_CAPTURE = "pause_capture",
   RESUME_CAPTURE = "resume_capture",
   RUN_OPERATION = "run_operation",
+  RUN_OPERATION_AND_SCREEN_TRANSITION = "run_operation_and_screen_transition",
   AUTOFILL = "autofill",
 }
 
@@ -85,6 +86,7 @@ enum ServerToClientSocketIOEvent {
   RUN_OPERATION_FAILED = "run_operation_failed",
   AUTOFILL_COMPLETED = "autofill_completed",
   RUN_OPERATION_AND_SCREEN_TRANSITION_COMPLETED = "run_operation_and_screen_transition_completed",
+  RUN_OPERATION_AND_SCREEN_TRANSITION_FAILED = "run_operation_and_screen_transition_failed",
   INVALID_OPERATION = "invalid_operation",
   ERROR_OCCURRED = "error_occurred",
 }
@@ -300,44 +302,61 @@ io.on("connection", (socket) => {
             }
           }
         );
+
+        const runOperation = async (
+          operation: string,
+          shouldWaitScreenTransition: boolean
+        ) => {
+          LoggingService.info(
+            `Run operation${
+              shouldWaitScreenTransition ? " and screen transition" : ""
+            }.`
+          );
+          LoggingService.debug(operation);
+
+          const targetOperation: Pick<
+            Operation,
+            "input" | "type" | "elementInfo"
+          > = JSON.parse(operation);
+          try {
+            await capturer.runOperation(targetOperation);
+            if (!shouldWaitScreenTransition) {
+              socket.emit(ServerToClientSocketIOEvent.RUN_OPERATION_COMPLETED);
+            }
+          } catch (error) {
+            if (!(error instanceof Error)) {
+              throw error;
+            }
+
+            const channel = shouldWaitScreenTransition
+              ? ServerToClientSocketIOEvent.RUN_OPERATION_AND_SCREEN_TRANSITION_FAILED
+              : ServerToClientSocketIOEvent.RUN_OPERATION_FAILED;
+            if (error.message === "InvalidOperationError") {
+              const serverError: ServerError = {
+                code: ServerErrorCode.INVALID_OPERATION,
+                message: "Invalid operation.",
+              };
+              socket.emit(channel, JSON.stringify(serverError));
+            }
+            if (error.message === "ElementNotFound") {
+              const serverError: ServerError = {
+                code: ServerErrorCode.ELEMENT_NOT_FOUND,
+                message: "Element not found.",
+              };
+              socket.emit(channel, JSON.stringify(serverError));
+            }
+          }
+        };
         socket.on(
           ClientToServerSocketIOEvent.RUN_OPERATION,
           async (operation: string) => {
-            LoggingService.info("Run operation.");
-            LoggingService.debug(operation);
-
-            const targetOperation: Pick<
-              Operation,
-              "input" | "type" | "elementInfo"
-            > = JSON.parse(operation);
-            try {
-              await capturer.runOperation(targetOperation);
-              socket.emit(ServerToClientSocketIOEvent.RUN_OPERATION_COMPLETED);
-            } catch (error) {
-              if (!(error instanceof Error)) {
-                throw error;
-              }
-              if (error.message === "InvalidOperationError") {
-                const serverError: ServerError = {
-                  code: ServerErrorCode.INVALID_OPERATION,
-                  message: "Invalid operation.",
-                };
-                socket.emit(
-                  ServerToClientSocketIOEvent.RUN_OPERATION_FAILED,
-                  JSON.stringify(serverError)
-                );
-              }
-              if (error.message === "ElementNotFound") {
-                const serverError: ServerError = {
-                  code: ServerErrorCode.ELEMENT_NOT_FOUND,
-                  message: "Element not found.",
-                };
-                socket.emit(
-                  ServerToClientSocketIOEvent.RUN_OPERATION_FAILED,
-                  JSON.stringify(serverError)
-                );
-              }
-            }
+            runOperation(operation, false);
+          }
+        );
+        socket.on(
+          ClientToServerSocketIOEvent.RUN_OPERATION_AND_SCREEN_TRANSITION,
+          async (operation: string) => {
+            runOperation(operation, true);
           }
         );
 

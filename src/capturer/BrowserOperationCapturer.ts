@@ -492,7 +492,6 @@ export default class BrowserOperationCapturer {
       const xpath = operation.elementInfo.xpath.toLowerCase();
 
       const elements = await this.client.getElementsByXpath(xpath);
-
       if (elements.length === 0) {
         throw new Error("ElementNotFound");
       }
