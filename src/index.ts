@@ -16,7 +16,7 @@
 
 import express from "express";
 import http from "http";
-import socketIO from "socket.io";
+import { Server } from "socket.io";
 import BrowserOperationCapturer from "./capturer/BrowserOperationCapturer";
 import { CaptureConfig } from "./CaptureConfig";
 import LoggingService from "./logger/LoggingService";
@@ -46,7 +46,9 @@ app.use(function (req, res, next) {
 });
 
 const server = http.createServer(app);
-const socket = socketIO(server);
+const io = new Server(server, {
+  allowEIO3: true,
+});
 
 /**
  * The Socket.IO event that is sent to server from client.
@@ -63,6 +65,7 @@ enum ClientToServerSocketIOEvent {
   PAUSE_CAPTURE = "pause_capture",
   RESUME_CAPTURE = "resume_capture",
   RUN_OPERATION = "run_operation",
+  RUN_OPERATION_AND_SCREEN_TRANSITION = "run_operation_and_screen_transition",
   AUTOFILL = "autofill",
 }
 
@@ -80,8 +83,10 @@ enum ServerToClientSocketIOEvent {
   CAPTURE_PAUSED = "capture_paused",
   CAPTURE_RESUMED = "capture_resumed",
   RUN_OPERATION_COMPLETED = "run_operation_completed",
+  RUN_OPERATION_FAILED = "run_operation_failed",
   AUTOFILL_COMPLETED = "autofill_completed",
   RUN_OPERATION_AND_SCREEN_TRANSITION_COMPLETED = "run_operation_and_screen_transition_completed",
+  RUN_OPERATION_AND_SCREEN_TRANSITION_FAILED = "run_operation_and_screen_transition_failed",
   INVALID_OPERATION = "invalid_operation",
   ERROR_OCCURRED = "error_occurred",
 }
@@ -135,7 +140,7 @@ app.get(`${v1RootPath}/server-name`, (req, res) => {
   res.json("latteart-capture-cl");
 });
 
-socket.on("connection", (socket) => {
+io.on("connection", (socket) => {
   LoggingService.info("Socket connected.");
 
   let capturer: BrowserOperationCapturer;
@@ -297,31 +302,61 @@ socket.on("connection", (socket) => {
             }
           }
         );
+
+        const runOperation = async (
+          operation: string,
+          shouldWaitScreenTransition: boolean
+        ) => {
+          LoggingService.info(
+            `Run operation${
+              shouldWaitScreenTransition ? " and screen transition" : ""
+            }.`
+          );
+          LoggingService.debug(operation);
+
+          const targetOperation: Pick<
+            Operation,
+            "input" | "type" | "elementInfo"
+          > = JSON.parse(operation);
+          try {
+            await capturer.runOperation(targetOperation);
+            if (!shouldWaitScreenTransition) {
+              socket.emit(ServerToClientSocketIOEvent.RUN_OPERATION_COMPLETED);
+            }
+          } catch (error) {
+            if (!(error instanceof Error)) {
+              throw error;
+            }
+
+            const channel = shouldWaitScreenTransition
+              ? ServerToClientSocketIOEvent.RUN_OPERATION_AND_SCREEN_TRANSITION_FAILED
+              : ServerToClientSocketIOEvent.RUN_OPERATION_FAILED;
+            if (error.message === "InvalidOperationError") {
+              const serverError: ServerError = {
+                code: ServerErrorCode.INVALID_OPERATION,
+                message: "Invalid operation.",
+              };
+              socket.emit(channel, JSON.stringify(serverError));
+            }
+            if (error.message === "ElementNotFound") {
+              const serverError: ServerError = {
+                code: ServerErrorCode.ELEMENT_NOT_FOUND,
+                message: "Element not found.",
+              };
+              socket.emit(channel, JSON.stringify(serverError));
+            }
+          }
+        };
         socket.on(
           ClientToServerSocketIOEvent.RUN_OPERATION,
           async (operation: string) => {
-            LoggingService.info("Run operation.");
-            LoggingService.debug(operation);
-
-            const targetOperation: Operation = JSON.parse(operation);
-            try {
-              await capturer.runOperation(targetOperation);
-              socket.emit(ServerToClientSocketIOEvent.RUN_OPERATION_COMPLETED);
-            } catch (error) {
-              if (!(error instanceof Error)) {
-                throw error;
-              }
-              if (error.message === "InvalidOperationError") {
-                const serverError: ServerError = {
-                  code: ServerErrorCode.INVALID_OPERATION,
-                  message: "Invalid operation.",
-                };
-                socket.emit(
-                  ServerToClientSocketIOEvent.ERROR_OCCURRED,
-                  JSON.stringify(serverError)
-                );
-              }
-            }
+            runOperation(operation, false);
+          }
+        );
+        socket.on(
+          ClientToServerSocketIOEvent.RUN_OPERATION_AND_SCREEN_TRANSITION,
+          async (operation: string) => {
+            runOperation(operation, true);
           }
         );
 
@@ -354,9 +389,12 @@ socket.on("connection", (socket) => {
 
         if (
           error.name === "SessionNotCreatedError" &&
-          error.message.includes(
+          (error.message.includes(
             "This version of ChromeDriver only supports Chrome version"
-          )
+          ) ||
+            error.message.includes(
+              "This version of Microsoft Edge WebDriver only supports Microsoft Edge version"
+            ))
         ) {
           LoggingService.error("WebDriver version mismatch.", error);
 

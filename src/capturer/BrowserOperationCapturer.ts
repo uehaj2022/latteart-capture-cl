@@ -22,6 +22,7 @@ import WebDriverClient from "@/webdriver/WebDriverClient";
 import ScreenTransition from "../ScreenTransition";
 import { SpecialOperationType } from "../SpecialOperationType";
 import Autofill from "../webdriver/autofill";
+import { TimestampImpl } from "../Timestamp";
 
 /**
  * The class for monitoring and getting browser operations.
@@ -181,7 +182,12 @@ export default class BrowserOperationCapturer {
         }
 
         if (acceptAlertOperation) {
-          this.onGetOperation(acceptAlertOperation);
+          this.onGetOperation(
+            new Operation({
+              ...acceptAlertOperation,
+              timestamp: new TimestampImpl().epochMilliseconds().toString(),
+            })
+          );
 
           acceptAlertOperation = null;
         }
@@ -220,19 +226,24 @@ export default class BrowserOperationCapturer {
           error.name === "UnexpectedAlertOpenError" ||
           error.name === "TimeoutError"
         ) {
-          LoggingService.debug(error.name);
+          LoggingService.debug(`${error}`);
           continue;
         }
 
-        await this.webBrowser!.close();
+        try {
+          await this.webBrowser.close();
+        } catch (error) {
+          LoggingService.debug(`${error}`);
+        }
 
         if (
           error.name === "WebDriverError" ||
-          error.name === "NoSuchWindowError"
+          error.name === "NoSuchWindowError" ||
+          (error.name === "Error" && error.message.startsWith("ECONNREFUSED"))
         ) {
-          LoggingService.debug(error.name);
+          LoggingService.debug(`${error}`);
 
-          continue;
+          break;
         }
 
         throw error;
@@ -412,7 +423,9 @@ export default class BrowserOperationCapturer {
    * Run operation.
    * @param operation Operation.
    */
-  public async runOperation(operation: Operation): Promise<void> {
+  public async runOperation(
+    operation: Pick<Operation, "input" | "type" | "elementInfo">
+  ): Promise<void> {
     if (
       ![
         SpecialOperationType.ACCEPT_ALERT,
@@ -426,22 +439,42 @@ export default class BrowserOperationCapturer {
     ) {
       throw new Error("InvalidOperationError");
     }
+
+    if (!this.webBrowser?.currentWindow) {
+      throw new Error("CurrentWindowNothing");
+    }
+
+    if (
+      operation.type === SpecialOperationType.ACCEPT_ALERT ||
+      operation.type === SpecialOperationType.DISMISS_ALERT
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    } else {
+      await this.webBrowser.currentWindow.removeScreenLock();
+    }
+
     try {
       switch (operation.type as SpecialOperationType) {
         case SpecialOperationType.ACCEPT_ALERT:
-          await this.client.acceptAlert(operation.input);
+          while (await this.client.alertIsVisible()) {
+            await this.client.acceptAlert(operation.input);
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          }
           return;
 
         case SpecialOperationType.DISMISS_ALERT:
-          await this.client.dismissAlert();
+          while (await this.client.alertIsVisible()) {
+            await this.client.dismissAlert();
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          }
           return;
 
         case SpecialOperationType.BROWSER_BACK:
-          await this.client.browserBack();
+          this.browserBack();
           return;
 
         case SpecialOperationType.BROWSER_FORWARD:
-          await this.client.browserForward();
+          this.browserForward();
           return;
 
         case SpecialOperationType.SWITCH_WINDOW:
@@ -457,6 +490,11 @@ export default class BrowserOperationCapturer {
       }
 
       const xpath = operation.elementInfo.xpath.toLowerCase();
+
+      const elements = await this.client.getElementsByXpath(xpath);
+      if (elements.length === 0) {
+        throw new Error("ElementNotFound");
+      }
 
       switch (operation.type) {
         case "click":
@@ -475,7 +513,12 @@ export default class BrowserOperationCapturer {
               operation.elementInfo.tagname.toLowerCase()
             )
           ) {
-            await this.client.clearAndSendKeysToElement(xpath, operation.input);
+            const inputValue =
+              operation.elementInfo.attributes.type === "date"
+                ? "00" + operation.input
+                : operation.input;
+
+            await this.client.clearAndSendKeysToElement(xpath, inputValue);
           }
 
           return;
