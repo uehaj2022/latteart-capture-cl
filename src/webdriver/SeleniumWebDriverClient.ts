@@ -221,7 +221,14 @@ export class SeleniumWebDriverClient implements WebDriverClient {
    */
   public async getCurrentPageText(): Promise<string> {
     try {
-      return await this.driver.findElement(By.css("body")).getText();
+      return await this.driver.executeScript(
+        `
+          if (!document) {
+            return ""
+          }
+          return document.getElementsByTagName("body")[0].innerText
+        `
+      );
     } catch (error) {
       if (error instanceof Error) {
         if (
