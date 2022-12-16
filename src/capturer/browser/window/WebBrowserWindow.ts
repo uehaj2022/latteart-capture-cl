@@ -590,12 +590,12 @@ export default class WebBrowserWindow {
       return true;
     }
 
-    if (operation.elementInfo?.tagname.toUpperCase() === "INPUT") {
+    if (operation.elementInfo?.tagname.toUpperCase() !== "INPUT") {
       return true;
     }
 
     if (
-      ["CHECKBOX", "RADIO"].includes(
+      !["CHECKBOX", "RADIO"].includes(
         operation.elementInfo?.attributes.type.toUpperCase()
       )
     ) {
