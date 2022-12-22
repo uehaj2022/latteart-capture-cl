@@ -41,6 +41,7 @@ export default class WebBrowserWindow {
 
   private client: WebDriverClient;
   private _windowHandle: string;
+  private beforeOperation: Operation | null = null;
   private onGetOperation: (operation: Operation) => void;
   private onGetScreenTransition: (screenTransition: ScreenTransition) => void;
   private onHistoryChanged: (browserStatus: {
@@ -198,10 +199,20 @@ export default class WebBrowserWindow {
       return;
     }
     for (const capturedData of capturedDatas) {
-      const capturedOperation = await this.convertToCapturedOperation([
+      const capturedOperations = await this.convertToCapturedOperations([
         capturedData,
       ]);
-      this.noticeCapturedOperations(...capturedOperation);
+
+      if (
+        capturedOperations[0] &&
+        this.shouldRegisterOperation(
+          capturedOperations[0],
+          this.beforeOperation
+        )
+      ) {
+        this.noticeCapturedOperations(...capturedOperations);
+      }
+      this.beforeOperation = capturedOperations[0] ?? null;
 
       if (capturedData.suspendedEvent.reFireFromWebdriverType === "inputDate") {
         await this.client.sendKeys(
@@ -458,7 +469,7 @@ export default class WebBrowserWindow {
     return before.replace(/\[1\]/g, "");
   }
 
-  private async convertToCapturedOperation(capturedDatas: CapturedData[]) {
+  private async convertToCapturedOperations(capturedDatas: CapturedData[]) {
     const filteredDatas = capturedDatas.filter((data) => {
       // Ignore the click event when dropdown list is opened because Selenium can not take a screenshot when dropdown list is opened.
       if (
@@ -550,5 +561,46 @@ export default class WebBrowserWindow {
         });
       })
     );
+  }
+
+  private shouldRegisterOperation(
+    operation: Operation,
+    beforeOperation: Operation | null
+  ): boolean {
+    if (beforeOperation === null) {
+      return true;
+    }
+
+    if (beforeOperation.url !== operation.url) {
+      return true;
+    }
+
+    if (beforeOperation.elementInfo?.attributes.for === undefined) {
+      return true;
+    }
+
+    if (
+      beforeOperation.elementInfo?.attributes.for !==
+      operation.elementInfo?.attributes.id
+    ) {
+      return true;
+    }
+
+    if (beforeOperation.elementInfo?.tagname.toUpperCase() !== "LABEL") {
+      return true;
+    }
+
+    if (operation.elementInfo?.tagname.toUpperCase() !== "INPUT") {
+      return true;
+    }
+
+    if (
+      !["CHECKBOX", "RADIO"].includes(
+        operation.elementInfo?.attributes.type.toUpperCase()
+      )
+    ) {
+      return true;
+    }
+    return false;
   }
 }

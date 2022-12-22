@@ -22,19 +22,12 @@ describe("WebBrowserWindowは", () => {
     expect(actual).toEqual("screenshot");
   });
 
-  describe("captureOperationsが呼ばれたとき、特定のオペレーションの場合webdriverからイベントを発火する", () => {
-    const pullCapturedDatasSpy = jest.spyOn(
-      CaptureScript.prototype,
-      "pullCapturedDatas"
-    );
-    const isReadyToCaptureSpy = jest.spyOn(
-      CaptureScript.prototype,
-      "isReadyToCapture"
-    );
+  describe("captureOperationsが呼ばれたとき", () => {
     const clientMock = {
       getCurrentPageText: jest.fn().mockResolvedValueOnce("pageSource"),
-      alertIsVisible: jest.fn().mockResolvedValue(true),
+      alertIsVisible: jest.fn().mockResolvedValue(false),
       sendKeys: jest.fn().mockResolvedValue(undefined),
+      execute: jest.fn().mockResolvedValueOnce(false),
     };
     const onGetOperation: (operation: Operation) => void = jest.fn();
     const window: WebBrowserWindow = new WebBrowserWindow(
@@ -50,9 +43,90 @@ describe("WebBrowserWindowは", () => {
       "takeScreenshotWithMarkOf"
     );
     takeScreenshotWithMarkOfSpy.mockResolvedValue("imageData");
+
+    let pullCapturedDatasSpy: any = null;
+    let isReadyToCaptureSpy: any = null;
+    beforeEach(() => {
+      pullCapturedDatasSpy = jest.spyOn(
+        CaptureScript.prototype,
+        "pullCapturedDatas"
+      );
+      isReadyToCaptureSpy = jest.spyOn(
+        CaptureScript.prototype,
+        "isReadyToCapture"
+      );
+    });
+
     afterEach(() => {
       pullCapturedDatasSpy.mockRestore();
       isReadyToCaptureSpy.mockRestore();
+    });
+
+    it("Checkboxに紐づいたLabelをクリックすると、Checkboxのクリックは登録しない", async () => {
+      pullCapturedDatasSpy.mockResolvedValueOnce([
+        {
+          operation: {
+            input: "input",
+            type: "click",
+            elementInfo: {
+              tagname: "label",
+              text: "",
+              xpath: "xpath",
+              attributes: { for: "checkboxId" },
+              boundingRect: { top: 0, left: 0, width: 0, height: 0 },
+            },
+            title: "title",
+            url: "url",
+          },
+          elements: [
+            {
+              tagname: "label",
+              text: "",
+              xpath: "xpath",
+              attributes: { for: "checkboxId" },
+            },
+          ],
+          suspendedEvent: {
+            reFireFromWebdriverType: "label",
+            reFire: jest.fn(),
+          },
+        },
+        {
+          operation: {
+            input: "input",
+            type: "click",
+            elementInfo: {
+              tagname: "input",
+              text: "checkbox",
+              xpath: "xpath",
+              attributes: { type: "checkbox", id: "checkboxId" },
+              boundingRect: { top: 0, left: 0, width: 0, height: 0 },
+            },
+            title: "title",
+            url: "url",
+          },
+          elements: [
+            {
+              tagname: "input",
+              text: "checkbox",
+              xpath: "xpath",
+              attributes: { type: "checkbox" },
+            },
+          ],
+          suspendedEvent: {
+            reFireFromWebdriverType: "checkbox",
+            reFire: jest.fn(),
+          },
+        },
+      ]);
+
+      isReadyToCaptureSpy.mockResolvedValue(true);
+
+      (window as any).noticeCapturedOperations = jest.fn();
+
+      await window.captureOperations();
+
+      expect((window as any).noticeCapturedOperations).toBeCalledTimes(1);
     });
 
     it("input type='date'の場合、webdriverからキーボード入力(space)を行う", async () => {
@@ -420,6 +494,99 @@ describe("WebBrowserWindowは", () => {
         pageSource: "",
         timestamp: expect.any(String),
       });
+    });
+  });
+
+  describe("captureScreenTransitionが呼ばれたとき", () => {
+    const clientMock = {
+      getDocumentReadyState: jest.fn().mockResolvedValueOnce("complete"),
+      execute: jest.fn().mockResolvedValue(true),
+      getCurrentUrl: jest.fn().mockResolvedValue("url"),
+    };
+    const option = {
+      onGetOperation: jest.fn(),
+      onGetScreenTransition: jest.fn(),
+      onHistoryChanged: jest.fn(),
+    };
+
+    it("screenTransitionが発生する", async () => {
+      const clientMock = {
+        getDocumentReadyState: jest.fn().mockResolvedValueOnce("complete"),
+        execute: jest.fn().mockResolvedValue(true),
+        getCurrentUrl: jest.fn().mockResolvedValue("url"),
+      };
+      const option = {
+        onGetOperation: jest.fn(),
+        onGetScreenTransition: jest.fn(),
+        onHistoryChanged: jest.fn(),
+      };
+
+      const window: WebBrowserWindow = new WebBrowserWindow(
+        "firstUrl",
+        clientMock as any,
+        "windowHandle",
+        option
+      );
+      (window as any).createScreenTransition = jest
+        .fn()
+        .mockResolvedValueOnce(true);
+
+      await window.captureScreenTransition();
+
+      expect((window as any).onHistoryChanged).toBeCalledTimes(1);
+    });
+    it("currentDocumentLoadingIsCompletedがfalse", async () => {
+      const clientMock = {
+        getDocumentReadyState: jest.fn().mockResolvedValueOnce(""),
+        execute: jest.fn(),
+      };
+      const window: WebBrowserWindow = new WebBrowserWindow(
+        "firstUrl",
+        clientMock as any,
+        "windowHandle"
+      );
+
+      await window.captureScreenTransition();
+
+      expect(clientMock.getDocumentReadyState).toBeCalledTimes(1);
+      expect(clientMock.execute).toBeCalledTimes(0);
+    });
+    it("currentUrlが空文字", async () => {
+      const clientMock = {
+        getDocumentReadyState: jest.fn().mockResolvedValueOnce("complete"),
+        execute: jest.fn().mockResolvedValueOnce(false),
+        getCurrentUrl: jest.fn().mockResolvedValueOnce(""),
+      };
+      const window: WebBrowserWindow = new WebBrowserWindow(
+        "firstUrl",
+        clientMock as any,
+        "windowHandle"
+      );
+
+      await window.captureScreenTransition();
+
+      expect(clientMock.getCurrentUrl).toBeCalledTimes(1);
+    });
+    it("currentScreenHasBeenObservedがfalse、且つurlIsChangedがfalse", async () => {
+      const clientMock = {
+        getDocumentReadyState: jest.fn().mockResolvedValueOnce("complete"),
+        execute: jest.fn().mockResolvedValueOnce(true),
+        getCurrentUrl: jest.fn().mockResolvedValueOnce(""),
+      };
+      const window: WebBrowserWindow = new WebBrowserWindow(
+        "firstUrl",
+        clientMock as any,
+        "windowHandle",
+        {
+          onGetScreenTransition: jest.fn(),
+        }
+      );
+
+      (window as any).createScreenTransition = jest.fn();
+      await window.captureScreenTransition();
+
+      expect(clientMock.getCurrentUrl).toBeCalledTimes(1);
+      expect((window as any).createScreenTransition).toBeCalledTimes(0);
     });
   });
 });
