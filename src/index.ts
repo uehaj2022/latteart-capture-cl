@@ -30,6 +30,7 @@ import path from "path";
 import { TimestampImpl } from "./Timestamp";
 import WebDriverClient from "./webdriver/WebDriverClient";
 import { setupWebDriverServer } from "./webdriver/setupWebDriver";
+import compress_images from "compress-images";
 
 const appRootPath = path.relative(process.cwd(), path.dirname(__dirname));
 
@@ -255,8 +256,12 @@ io.on("connection", (socket) => {
         });
         socket.on(ClientToServerSocketIOEvent.TAKE_SCREENSHOT, async () => {
           const screenshot = await capturer.getScreenshot();
-
-          socket.emit(ServerToClientSocketIOEvent.SCREENSHOT_TAKEN, screenshot);
+          const result = await compress_images(screenshot, { compress_force: false, statistic: true, autoupdate: true }, false,
+            { jpg: { engine: "mozjpeg", command: ["-quality", "60"] } },
+            { png: { engine: "pngquant", command: ["--quality=20-50", "-o"] } },
+            { svg: { engine: "svgo", command: "--multipass" } },
+            { gif: { engine: "gifsicle", command: ["--colors", "64", "--use-col=web"] } },);
+          socket.emit(ServerToClientSocketIOEvent.SCREENSHOT_TAKEN, result);
         });
         socket.on(ClientToServerSocketIOEvent.BROWSER_BACK, () => {
           capturer.browserBack();
